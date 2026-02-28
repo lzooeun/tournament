@@ -86,8 +86,20 @@
         <div>
             <div id="round-robin" class="match-stage active">
                 {% for match in matches %}
-                <div class="match-card {% if match.status == 'COMPLETED' %}completed{% endif %}">
-                    <div class="match-time">Game {{ match.match_number }}</div>
+                <div class="match-card {% if match.status == 'COMPLETED' %}completed{% endif %}"
+                     {% if match.is_completed and match.screenshot_url %}
+                     onclick="window.open('{{ match.screenshot_url }}', '_blank')" 
+                     style="cursor: pointer;"
+                     title="클릭하여 결과 스크린샷 보기"
+                     {% endif %}>
+                    
+                    <div class="match-time">
+                        Game {{ match.match_number }}
+                        {% if match.is_completed and match.screenshot_url %}
+                        <span style="font-size: 0.8em; margin-left: 4px;" opacity="0.8">📸</span>
+                        {% endif %}
+                    </div>
+                    
                     <div class="match-teams">
                         <span class="{% if match.winner == match.team_a %}winner{% endif %}">
                             {{ match.team_a.name }} {% if match.winner == match.team_a %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
@@ -97,6 +109,7 @@
                             {{ match.team_b.name }} {% if match.winner == match.team_b %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
                         </span>
                     </div>
+                    
                     <div class="match-duration">
                         {% if match.game_duration %}{{ match.game_duration }}{% else %}-{% endif %}
                     </div>
@@ -146,7 +159,7 @@
 
     <footer>
         <p>Strictly for the personal satisfaction of the event organizer. Nothing more. Nothing less.</p>
-        <p>Contact Organizer: Discord JYPIMNIDA</p>
+        <p>System Dev & Support | Discord: zooeun</p>
     </footer>
 </div>
 

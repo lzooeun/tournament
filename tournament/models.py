@@ -15,7 +15,7 @@ class Player(models.Model):
     
     POSITION_CHOICES = [
         ('TOP', '탑'),
-        ('JUG', '정글'),
+        ('JGL', '정글'),
         ('MID', '미드'),
         ('ADC', '원딜'),
         ('SUP', '서포터'),
@@ -67,10 +67,9 @@ class Match(models.Model):
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', verbose_name="상태")
     winner = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='won_matches', verbose_name="승리 팀")
-    
-    # 🌟 새롭게 추가된 기획: 타이브레이커(동률) 처리를 위한 게임 소요 시간
-    # 봇이 "30:15" 형태로 입력하기 쉽게 문자열로 받고, 나중에 로직으로 계산할 수 있음
     game_duration = models.CharField(max_length=10, null=True, blank=True, verbose_name="게임 소요 시간 (MM:SS)")
+    is_completed = models.BooleanField(default=False)
+    screenshot_url = models.URLField(max_length=500, blank=True, null=True)
 
     def __str__(self):
         return f"Game {self.match_number}: {self.team_a.name} vs {self.team_b.name}"

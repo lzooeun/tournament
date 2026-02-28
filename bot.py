@@ -44,6 +44,45 @@ async def on_ready():
     print(f'✅ 봇 로그인 성공: {bot.user.name}')
     print('✅ 슬래시 명령어 동기화 완료!')
 
+class ApprovalView(discord.ui.View):
+    def __init__(self, match_id, image_url, duration):
+        super().__init__(timeout=None)
+        self.match_id = match_id
+        self.image_url = image_url
+        self.winner_team = self.winner_team
+        self.duration = duration
+
+    @discord.ui.button(label="승인 (Approve)", style=discord.ButtonStyle.success)
+    async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        @sync_to_async
+        def update_match():
+            from tournament.models import Match, Team
+            match = Match.objects.get(id=self.match_id)
+            winner = Team.objects.filter(name=self.winner_team).first()
+            
+            if winner:
+                match.winner = winner
+                # 패배팀 찾기
+                loser = match.team_b if match.team_a == winner else match.team_a
+                
+                # 👇 추가된 부분: 승패 카운트 및 기존 status 변경 로직
+                winner.wins += 1
+                winner.save()
+                loser.losses += 1
+                loser.save()
+                match.status = 'COMPLETED'
+                
+            match.is_completed = True
+            match.screenshot_url = self.image_url
+            match.game_duration = self.duration
+            match.save()
+            
+            return winner.name if winner else "알 수 없음"
+            
+        winner_name = await update_match()
+        await interaction.response.send_message(f"✅ 매치 #{self.match_id} 승인 완료! ({winner_name} 1승 추가, 스크린샷 웹사이트 반영됨)", ephemeral=False)
+        self.stop()
+
 # ==========================================
 # 팀 이름 자동완성 함수
 # ==========================================
@@ -57,81 +96,72 @@ async def team_autocomplete(interaction: discord.Interaction, current: str) -> l
     # 디스코드 UI에 띄워줄 선택지 리스트 반환
     return [app_commands.Choice(name=t.name, value=t.name) for t in teams]
 
-# ==========================================
-# /결과입력 슬래시 명령어
-# ==========================================
-@bot.tree.command(name="결과입력", description="진행된 경기의 승리 팀과 소요 시간을 입력합니다.")
+@bot.tree.command(name="결과제출", description="경기 결과 스크린샷과 승리팀을 제출합니다. (매치 자동 검색)")
 @app_commands.describe(
-    team_name="어느 팀이 이겼나요? (목록에서 선택하세요)",
-    duration="게임 소요 시간을 '분:초' 형식으로 적어주세요 (예: 30:15)"
-)
-@app_commands.autocomplete(team_name=team_autocomplete) # 자동완성 연결!
-async def enter_result_slash(interaction: discord.Interaction, team_name: str, duration: str):
-    
-    # 시간 포맷 검증
-    if not re.match(r'^\d{1,2}:\d{2}$', duration):
-        # 슬래시 명령어는 ctx.send 대신 interaction.response.send_message를 써야 해!
-        await interaction.response.send_message("❌ 시간은 `분:초` 형식으로 정확히 적어주세요! (예: `30:15`)", ephemeral=True)
+    winner_team="승리한 팀 이름 (정확히 기재)", 
+    duration="경기 총 시간 (예 32:15)",
+    image="결과 화면 스크린샷 첨부"
+    )
+async def submit_result(interaction: discord.Interaction, winner_team: str, duration: str, image: discord.Attachment):
+    # 1. 이미지 파일 형식 확인
+    if not image.content_type.startswith('image/'):
+        await interaction.response.send_message("❌ 이미지 파일만 첨부할 수 있습니다!", ephemeral=True)
         return
 
+    # 2. DB에서 알맞은 매치 자동으로 찾아오기 (비동기 처리)
     @sync_to_async
-    def process_match_result(t_name, game_time):
-        try:
-            winner_team = Team.objects.get(name=t_name)
+    def get_pending_match(team_name):
+        from tournament.models import Match, Team
+        
+        # 입력한 팀이 존재하는지 확인
+        team = Team.objects.filter(name=team_name).first()
+        if not team:
+            return None, None, f"❌ '{team_name}' 팀을 찾을 수 없습니다. 오타가 없는지 확인해 주세요."
+        
+        # 해당 팀이 A팀이거나 B팀이면서, 아직 안 끝난 경기 중 가장 번호가 앞서는(또는 가장 오래된) 경기 1개 찾기
+        match = Match.objects.filter(
+            Q(is_completed=False) & (Q(team_a=team) | Q(team_b=team))
+        ).order_by('match_number').first() # match_number 기준으로 정렬 (필요에 따라 변경 가능)
+        
+        if not match:
+            return None, None, f"❌ **{team.name}** 팀의 진행 대기 중인 매치가 없습니다."
             
-            pending_match = Match.objects.filter(
-                Q(team_a=winner_team) | Q(team_b=winner_team),
-                status='PENDING'
-            ).order_by('match_number').first()
+        # 매치 상대팀이 누군지도 같이 넘겨주면 확인하기 좋음
+        opponent = match.team_b.name if match.team_a == team else match.team_a.name
+        return match.id, opponent, None
 
-            if not pending_match:
-                return False, f"❌ '{t_name}' 팀이 치를 대기 중인 경기가 없습니다."
+    # 함수 실행해서 매치 정보 받아오기
+    match_id, opponent_name, error_msg = await get_pending_match(winner_team)
 
-            loser_team = pending_match.team_b if pending_match.team_a == winner_team else pending_match.team_a
+    # 에러가 있다면 (팀 이름 오타 등) 사용자에게만 살짝 알려주고 종료
+    if error_msg:
+        await interaction.response.send_message(error_msg, ephemeral=True)
+        return
 
-            pending_match.status = 'COMPLETED'
-            pending_match.winner = winner_team
-            pending_match.game_duration = game_time
-            pending_match.save()
+    # 3. 관리자용 승인 Embed 생성
+    embed = discord.Embed(
+        title=f"🛑 자동 매칭: 매치 #{match_id} 결과 승인 요청",
+        description=(
+            f"**제출자:** {interaction.user.mention}\n"
+            f"**매치 정보:** **{winner_team}** vs **{opponent_name}**\n"
+            f"**주장하는 승리팀:** **{winner_team}**\n\n"
+            f"**경기 시간:** **{duration}**\n\n"
+            f"아래 스크린샷을 확인하고 승인/거절을 선택해 주세요."
+        ),
+        color=discord.Color.blue()
+    )
+    embed.set_image(url=image.url)
 
-            winner_team.wins += 1
-            winner_team.save()
-
-            loser_team.losses += 1
-            loser_team.save()
-
-            return True, (pending_match.match_number, winner_team.name, loser_team.name, game_time)
-
-        except Team.DoesNotExist:
-            return False, f"❌ '{t_name}' 팀을 DB에서 찾을 수 없습니다."
-        except Exception as e:
-            return False, f"❌ 오류 발생: {str(e)}"
-
-    # 봇이 처리하는 동안 '생각 중...' 메시지를 띄움
-    await interaction.response.defer()
-    
-    success, result = await process_match_result(team_name, duration)
-    
-    if success:
-        match_num, w_name, l_name, g_time = result
-        
-        embed = discord.Embed(title=f"Game {match_num} 결과 저장 완료!", color=0x7289DA) 
-        embed.add_field(name="🏆 승리", value=f"**{w_name}**", inline=True)
-        embed.add_field(name="💀 패배", value=l_name, inline=True)
-        embed.add_field(name="⏱️ 소요 시간", value=g_time, inline=False)
-        embed.set_footer(text="이 결과는 TÆKTUBE 웹사이트 순위표에 실시간으로 반영되었습니다.")
-        
-        # 처리 완료 후 임베드 전송 (defer를 썼기 때문에 followup 사용)
-        await interaction.followup.send(embed=embed)
-    else:
-        await interaction.followup.send(result)
+    # 4. 버튼 뷰 연결 및 메시지 전송
+    view = ApprovalView(match_id, image.url, winner_team)
+    await interaction.response.send_message(embed=embed, view=view)
 
 # ==========================================
 # /결과취소 슬래시 명령어 (관리자 전용)
 # ==========================================
 @bot.tree.command(name="결과취소", description="[관리자 전용] 잘못 입력된 경기 결과를 다시 대기 상태로 되돌립니다.")
 @app_commands.describe(match_number="취소할 경기 번호를 숫자로 입력하세요 (예: 1)")
-@app_commands.default_permissions(administrator=True) # ✨ 핵심: 관리자 권한이 있는 사람에게만 이 명령어가 보임!
+@app_commands.default_permissions(administrator=True)
 async def cancel_result_slash(interaction: discord.Interaction, match_number: int):
     
     @sync_to_async
@@ -160,6 +190,8 @@ async def cancel_result_slash(interaction: discord.Interaction, match_number: in
             match.status = 'PENDING'
             match.winner = None
             match.game_duration = None
+            match.is_completed = False 
+            match.screenshot_url = None
             match.save()
             
             return True, f"⏪ **Game {m_num} 결과 취소 완료!**\n{winner.name}의 1승과 {loser.name}의 1패가 삭감되었고, 경기가 다시 대기 중 상태로 돌아갔습니다."
@@ -183,7 +215,7 @@ async def cancel_result_slash(interaction: discord.Interaction, match_number: in
 # ==========================================
 @bot.tree.command(name="팀가입", description="원하는 팀에 가입하거나 이동합니다.")
 @app_commands.describe(team_name="가입할 팀을 선택하세요")
-@app_commands.autocomplete(team_name=team_autocomplete) # 여기서도 팀 드롭다운 자동완성 적용!
+@app_commands.autocomplete(team_name=team_autocomplete)
 async def join_team_slash(interaction: discord.Interaction, team_name: str):
 
     global TEAM_JOIN_LOCKED
@@ -331,7 +363,7 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
 
 # ==========================================
-# 🗓️ /대진표생성 슬래시 명령어 (관리자 전용)
+# /대진표생성 슬래시 명령어 (관리자 전용)
 # ==========================================
 @bot.tree.command(name="대진표생성", description="[관리자 전용] 5개 팀의 풀리그(라운드 로빈) 10경기 대진표를 자동 생성합니다.")
 @app_commands.default_permissions(administrator=True)
