@@ -1,0 +1,344 @@
+[
+  {
+    "model": "tournament.player",
+    "pk": 1,
+    "fields": { 
+      "riot_id": "zl 존태 원#악세짱짱맨", 
+      "discord_username": "taewonh", 
+      "discord_user_id": "315225019787640832", 
+      "tier": 1, 
+      "team": null, 
+      "highest_rank": "Diamond 2", 
+      "solo_rank": "diamond 4", 
+      "main_position": "ADC", 
+      "sub_position": "TOP"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 2,
+    "fields": { 
+      "riot_id": "WOOJOO#야무진", 
+      "discord_username": "nicecone", 
+      "discord_user_id": "616697671649984513", 
+      "tier": 1, 
+      "team": null, 
+      "highest_rank": "Diamond 1", 
+      "solo_rank": "Diamond 2", 
+      "main_position": "ADC", 
+      "sub_position": "SUP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 3,
+    "fields": { 
+      "riot_id": "God thunder#kr44", 
+      "discord_username": "distid_00100", 
+      "discord_user_id": "329702529602420737", 
+      "tier": 1, "team": null, 
+      "highest_rank": "Diamond 3", 
+      "solo_rank": "Emerald 2", 
+      "main_position": "JGL", 
+      "sub_position": "TOP",
+      "note": "미드, 원딜 가능" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 4,
+    "fields": { 
+      "riot_id": "Austin04#0209", 
+      "discord_username": "#7010", 
+      "discord_user_id": "TEMP_04", 
+      "tier": 1, "team": null, 
+      "highest_rank": "Diamond 3", 
+      "solo_rank": null, 
+      "main_position": "ADC", 
+      "sub_position": null 
+    } 
+  },
+  {
+    "model": "tournament.player",
+    "pk": 5,
+    "fields": { 
+      "riot_id": "backjozzang#NA1", 
+      "discord_username": "jaeseung0624", 
+      "discord_user_id": "581730521655148544", 
+      "tier": 1, "team": null, 
+      "highest_rank": "Diamond 3", 
+      "solo_rank": "Emerald 1", 
+      "main_position": "ADC", 
+      "sub_position": "SUP" 
+    }
+  },
+
+  {
+    "model": "tournament.player",
+    "pk": 6,
+    "fields": { 
+      "riot_id": "I am cute#4830", 
+      "discord_username": "seopwon", 
+      "discord_user_id": "359482747070185472", 
+      "tier": 2, "team": null, 
+      "highest_rank": "Diamond 3", 
+      "solo_rank": "Emerald 4", 
+      "main_position": "TOP", 
+      "sub_position": "SUP",
+      "note": "미드, 원딜 가능"  
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 7,
+    "fields": { 
+      "riot_id": "통새우와퍼세트#11300", 
+      "discord_username": "alex_kye", 
+      "discord_user_id": "528069684222885888", 
+      "tier": 2, 
+      "team": null, 
+      "highest_rank": "Diamond 4", 
+      "solo_rank": "Diamond 4", 
+      "main_position": "TOP", 
+      "sub_position": null 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 8,
+    "fields": { "riot_id": "채운", "discord_username": "임시", "discord_user_id": "TEMP_08", "tier": 2, "team": null, "highest_rank": null, "solo_rank": null, "main_position": "ADC", "sub_position": "SUP" }
+  },
+
+  {
+    "model": "tournament.player",
+    "pk": 9,
+    "fields": { 
+      "riot_id": "Mooké#5198", 
+      "discord_username": "posw", 
+      "discord_user_id": "507971440419667970", 
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Emerald 2", 
+      "solo_rank": "Platinum 2", 
+      "main_position": "JGL", 
+      "sub_position": "TOP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 10,
+    "fields": { 
+      "riot_id": "메이드호날두에겐축구가너무어려워#APDO", 
+      "discord_username": "ailerii_1", 
+      "discord_user_id": "752233960813232168", 
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Platinum 3", 
+      "solo_rank": "Platinum 3", 
+      "main_position": "MID", 
+      "sub_position": "TOP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 11,
+    "fields": { 
+      "riot_id": "rudnf#1004", 
+      "discord_username": "diejoubu.", 
+      "discord_user_id": "826220876188876810", 
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Emerald 4", 
+      "solo_rank": "Emerald 4", 
+      "main_position": "SUP", 
+      "sub_position": "TOP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 12,
+    "fields": { 
+      "riot_id": "Mike#Tyson", 
+      "discord_username": "sang5348", 
+      "discord_user_id": "297371575139827712", 
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Platinum", 
+      "solo_rank": null, 
+      "main_position": "ADC", 
+      "sub_position": null, 
+      "note": "모든 포지션 가능/아이디 확인 안됨(언랭)"  
+    }
+  },
+
+  {
+    "model": "tournament.player",
+    "pk": 13,
+    "fields": { 
+      "riot_id": "가끔씩툭하고러시아어로부끄러워하#는아라양", 
+      "discord_username": "6162", 
+      "discord_user_id": "504742854266978305", 
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Platinum 4", 
+      "solo_rank": "Platinum 4", 
+      "main_position": "JGL", 
+      "sub_position": null,
+      "note": "미드 빼고 모든 포지션 가능" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 14,
+    "fields": { 
+      "riot_id": "MontrealTacoyaki", 
+      "discord_username": "gihyunjia", 
+      "discord_user_id": "TEMP_14", 
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Platinum", 
+      "solo_rank": null, 
+      "main_position": "TOP", 
+      "sub_position": "SUP",
+      "note": "아이디 확인 불가능-태그 필요"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 15,
+    "fields": { 
+      "riot_id": "Time Will Tell #Hers", 
+      "discord_username": "j58743", 
+      "discord_user_id": "395730611077382174", 
+      "tier": 4, "team": null, 
+      "highest_rank": "Platinum", 
+      "solo_rank": null, 
+      "main_position": "MID", 
+      "sub_position": "TOP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 16,
+    "fields": { 
+      "riot_id": "집 없는 아기 #NA0", 
+      "discord_username": "guiyomi_", 
+      "discord_user_id": "957308831619223584", 
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Emerald 4", 
+      "solo_rank": null, 
+      "main_position": "SUP", 
+      "sub_position": "MID",
+      "note": "롤 아이디 확인 안됨" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 17,
+    "fields": { 
+      "riot_id": "T1 JOAT#1111", 
+      "discord_username": "minjae4917", 
+      "discord_user_id": "272128330378117122", 
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Platinum 4", 
+      "solo_rank": "Gold 2", 
+      "main_position": "ADC", 
+      "sub_position": "MID" 
+    }
+  },
+
+  {
+    "model": "tournament.player",
+    "pk": 18,
+    "fields": { 
+      "riot_id": "Bottom#9999", 
+      "discord_username": "narong11", 
+      "discord_user_id": "972347241958371399", 
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": "Iron 1", 
+      "solo_rank": null, 
+      "main_position": "ADC", 
+      "sub_position": "SUP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 19,
+    "fields": { 
+      "riot_id": "nieulgul#NA1", 
+      "discord_username": "sewonie.", 
+      "discord_user_id": "945103624596512789", 
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": "Silver 3", 
+      "solo_rank": "Bronze 3", 
+      "main_position": "MID", 
+      "sub_position": "ADC" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 20,
+    "fields": { 
+      "riot_id": "꾸우우우렉#Korea", 
+      "discord_username": "jypimnida", 
+      "discord_user_id": "326370762997104640", 
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": "Gold 3", 
+      "solo_rank": "Gold 4", 
+      "main_position": "SUP", 
+      "sub_position": "MID" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 21,
+    "fields": { 
+      "riot_id": "뿌잉도담#뿌잉뿌잉", 
+      "discord_username": "dodamDe#5002", 
+      "discord_user_id": "TEMP_21", 
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": "Gold 4", 
+      "solo_rank": "Bronze 1", 
+      "main_position": "TOP", 
+      "sub_position": "SUP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 22,
+    "fields": { 
+      "riot_id": "Switch to me#6281", 
+      "discord_username": "Jae8129", 
+      "discord_user_id": "805191314672058408", 
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": null, 
+      "solo_rank": null, 
+      "main_position": "MID", 
+      "sub_position": "SUP",
+      "note": "롤 아이디 확인 안됨"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 23,
+    "fields": {
+      "riot_id": "zl 존강 해휴#악세총무팀", 
+      "discord_username": "ssokdoksay", 
+      "discord_user_id": "957380887211823134", 
+      "tier": 2, 
+      "team": null, 
+      "highest_rank": "Emerald 2", 
+      "solo_rank": null, 
+      "main_position": "ADC", 
+      "sub_position": "SUP",
+      "note": "롤 아이디 확인 안됨"
+    }
+  }
+]

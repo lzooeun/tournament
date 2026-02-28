@@ -1,0 +1,171 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 TÆKTUBE INVITATIONAL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="stylesheet" href="{% static 'tournament/css/style.css' %}">
+</head>
+<body>
+
+<div class="container">
+    <h1>2026 TÆKTUBE INVITATIONAL</h1>
+    <div class="subtitle">Montreal Edition <span class="badge">S1</span></div>
+
+    <h2>Player List</h2>
+    {% for tier_num, players in players_by_tier.items %}
+    <div class="tier-row">
+        <div class="tier-label">{{ tier_num }} Tier</div>
+        <div class="player-grid">
+            {% for player in players %}
+            
+            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                
+                <div class="card-title">{{ player.riot_id }}</div>
+                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                <div class="tooltip-content">
+                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                    <div><span>주 포지션</span> <strong>{{ player.get_main_position_display }}</strong></div>
+                    <div><span>부 포지션</span> <strong>{{ player.get_sub_position_display }}</strong></div>
+
+                    {% if player.note %}
+                    <div class="player-note">
+                        <span>참고</span> <strong>{{ player.note }}</strong>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="card"><div class="card-sub">등록된 참가자가 없습니다.</div></div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <h2>Team List</h2>
+    <div class="team-grid">
+        {% for team in teams %}
+        <div class="team-card">
+            <div class="team-name">{{ team.name }}</div>
+            {% for player in team.players %}
+                {% if player %}
+                    <div class="team-member active-player" style="color:#333; font-weight:500;" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                        {{ player.riot_id }}
+                    </div>
+                {% else %}
+                    <div class="team-member" style="color:var(--border-light);">공석</div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <h2>Match Hub</h2>
+    <div class="match-hub">
+        <div class="stage-list">
+            <div class="stage-item active" onclick="switchTab('round-robin', this)">
+                <div class="stage-title">Round Robin</div>
+                <div class="stage-date">Mar 28th</div>
+            </div>
+            <div class="stage-item" onclick="switchTab('semi-finals', this)" style="border-bottom-color: var(--border-light);">
+                <div class="stage-title">Semi Finals</div>
+                <div class="stage-date">Mar 29th</div>
+            </div>
+            <div class="stage-item" onclick="switchTab('finals', this)" style="border-bottom-color: var(--border-light);">
+                <div class="stage-title">Finals</div>
+                <div class="stage-date">TBD</div>
+            </div>
+        </div>
+
+        <div>
+            <div id="round-robin" class="match-stage active">
+                {% for match in matches %}
+                <div class="match-card {% if match.status == 'COMPLETED' %}completed{% endif %}">
+                    <div class="match-time">Game {{ match.match_number }}</div>
+                    <div class="match-teams">
+                        <span class="{% if match.winner == match.team_a %}winner{% endif %}">
+                            {{ match.team_a.name }} {% if match.winner == match.team_a %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
+                        </span> 
+                        / 
+                        <span class="{% if match.winner == match.team_b %}winner{% endif %}">
+                            {{ match.team_b.name }} {% if match.winner == match.team_b %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
+                        </span>
+                    </div>
+                    <div class="match-duration">
+                        {% if match.game_duration %}{{ match.game_duration }}{% else %}-{% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <p>대진표가 없습니다.</p>
+                {% endfor %}
+            </div>
+
+            <div id="semi-finals" class="match-stage">
+                <div class="match-card">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>TBD</span> / <span>TBD</span></div>
+                    <div class="match-duration">Bo3</div>
+                </div>
+            </div>
+
+            <div id="finals" class="match-stage">
+                <div class="match-card" style="border-color: var(--text-dark);">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>TBD</span> / <span>TBD</span></div>
+                    <div class="match-duration">Bo5</div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h3 style="margin-bottom: 15px;">Current Ranking</h3>
+            <table class="ranking-table">
+                <tr><th>Rank</th><th>Team</th><th>W/L</th></tr>
+                {% for team in rankings %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td class="{% if forloop.first and team.wins > 0 %}winner{% endif %}">{{ team.name }}</td>
+                    <td>{{ team.wins }}/{{ team.losses }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+    <h2>Rules</h2>
+    <ul class="rules-list">
+        <li>부계정 사용 적발 시 즉각 실격 처리됩니다.</li>
+        <li>토너먼트 시작 시, 각자 자기 게임 시작 5분 전까지는 지정된 팀 사설방(디스코드 음성) 참가를 완료해야 합니다. (지각 시 밴 카드 1장 몰수)</li>
+        <li>게임 내에서는 어떠한 도발, 욕설도 허용되지 않습니다. (전체 채팅 금지 권장)</li>
+    </ul>
+
+    <footer>
+        <p>Strictly for the personal satisfaction of the event organizer. Nothing more. Nothing less.</p>
+        <p>Contact Organizer: Discord JYPIMNIDA</p>
+    </footer>
+</div>
+
+<script>
+function switchTab(tabId, element) {
+    // 1. 모든 탭 컨텐츠 숨기기
+    document.querySelectorAll('.match-stage').forEach(tab => tab.classList.remove('active'));
+    // 2. 모든 메뉴 선택 해제
+    document.querySelectorAll('.stage-item').forEach(item => {
+        item.classList.remove('active');
+        item.style.borderBottomColor = 'var(--border-light)';
+    });
+    // 3. 클릭한 탭 컨텐츠 보여주기
+    document.getElementById(tabId).classList.add('active');
+    // 4. 클릭한 메뉴 활성화
+    element.classList.add('active');
+    element.style.borderBottomColor = 'var(--text-dark)';
+}
+</script>
+
+</body>
+</html>
