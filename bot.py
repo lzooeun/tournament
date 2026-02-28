@@ -45,11 +45,11 @@ async def on_ready():
     print('✅ 슬래시 명령어 동기화 완료!')
 
 class ApprovalView(discord.ui.View):
-    def __init__(self, match_id, image_url, duration):
+    def __init__(self, match_id, image_url, winner_team, duration): 
         super().__init__(timeout=None)
         self.match_id = match_id
         self.image_url = image_url
-        self.winner_team = self.winner_team
+        self.winner_team = winner_team 
         self.duration = duration
 
     @discord.ui.button(label="승인 (Approve)", style=discord.ButtonStyle.success)
@@ -153,7 +153,7 @@ async def submit_result(interaction: discord.Interaction, winner_team: str, dura
     embed.set_image(url=image.url)
 
     # 4. 버튼 뷰 연결 및 메시지 전송
-    view = ApprovalView(match_id, image.url, winner_team)
+    view = ApprovalView(match_id, image.url, winner_team, duration)
     await interaction.response.send_message(embed=embed, view=view)
 
 # ==========================================
