@@ -83,6 +83,15 @@ class ApprovalView(discord.ui.View):
         await interaction.response.send_message(f"✅ 매치 #{self.match_id} 승인 완료! ({winner_name} 1승 추가, 스크린샷 웹사이트 반영됨)", ephemeral=False)
         self.stop()
 
+    @discord.ui.button(label="거절 (Reject)", style=discord.ButtonStyle.danger)
+    async def reject_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            f"❌ 매치 #{self.match_id} 결과가 관리자에 의해 **거절**되었습니다.\n"
+            f"제출된 스크린샷과 승리팀(`{self.winner_team}`) 정보가 일치하는지 확인 후 다시 제출해 주세요.", 
+            ephemeral=False
+        )
+        self.stop()
+
 # ==========================================
 # 팀 이름 자동완성 함수
 # ==========================================
@@ -98,10 +107,11 @@ async def team_autocomplete(interaction: discord.Interaction, current: str) -> l
 
 @bot.tree.command(name="결과제출", description="경기 결과 스크린샷과 승리팀을 제출합니다. (매치 자동 검색)")
 @app_commands.describe(
-    winner_team="승리한 팀 이름 (정확히 기재)", 
+    winner_team="승리한 팀 이름 (목록에서 선택)", 
     duration="경기 총 시간 (예 32:15)",
     image="결과 화면 스크린샷 첨부"
     )
+@app_commands.autocomplete(winner_team=team_autocomplete)
 async def submit_result(interaction: discord.Interaction, winner_team: str, duration: str, image: discord.Attachment):
     # 1. 이미지 파일 형식 확인
     if not image.content_type.startswith('image/'):

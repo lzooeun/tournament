@@ -12,12 +12,22 @@
     <link rel="stylesheet" href="{% static 'tournament/css/style.css' %}">
 </head>
 <body>
-
+<nav class="navbar">
+    <div class="nav-container">
+        <div class="nav-logo">TÆKTUBE</div>
+        <div class="nav-links">
+            <a href="#player-list">Players</a>
+            <a href="#team-list">Teams</a>
+            <a href="#match-hub">Matches</a>
+            <a href="#rules">Rules</a>
+        </div>
+    </div>
+</nav>
 <div class="container">
     <h1>2026 TÆKTUBE INVITATIONAL</h1>
     <div class="subtitle">Montreal Edition <span class="badge">S1</span></div>
 
-    <h2>Player List</h2>
+    <h2 id="player-list">Player List</h2>
     {% for tier_num, players in players_by_tier.items %}
     <div class="tier-row">
         <div class="tier-label">{{ tier_num }} Tier</div>
@@ -48,25 +58,30 @@
     </div>
     {% endfor %}
 
-    <h2>Team List</h2>
+    <h2 id="team-list">Team List</h2>
     <div class="team-grid">
         {% for team in teams %}
         <div class="team-card">
-            <div class="team-name">{{ team.name }}</div>
-            {% for player in team.players %}
-                {% if player %}
-                    <div class="team-member active-player" style="color:#333; font-weight:500;" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                        {{ player.riot_id }}
-                    </div>
-                {% else %}
-                    <div class="team-member" style="color:var(--border-light);">공석</div>
-                {% endif %}
-            {% endfor %}
+            <div class="team-card-header">
+                <div class="team-name">{{ team.name }}</div>
+            </div>
+            
+            <div class="team-card-body">
+                {% for player in team.players %}
+                    {% if player %}
+                        <div class="team-member active-player" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            {{ player.riot_id }}
+                        </div>
+                    {% else %}
+                        <div class="team-member empty-slot">공석</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
         </div>
         {% endfor %}
     </div>
 
-    <h2>Match Hub</h2>
+    <h2 id="match-hub">Match Hub</h2>
     <div class="match-hub">
         <div class="stage-list">
             <div class="stage-item active" onclick="switchTab('round-robin', this)">
@@ -150,7 +165,7 @@
             </table>
         </div>
     </div>
-    <h2>Rules</h2>
+    <h2 id="rules">Rules</h2>
     <ul class="rules-list">
         <li>부계정 사용 적발 시 즉각 실격 처리됩니다.</li>
         <li>토너먼트 시작 시, 각자 자기 게임 시작 5분 전까지는 지정된 팀 사설방(디스코드 음성) 참가를 완료해야 합니다. (지각 시 밴 카드 1장 몰수)</li>
