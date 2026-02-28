@@ -1,6 +1,8 @@
 import os
 import django
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 
 load_dotenv()
 
@@ -14,6 +16,20 @@ from discord import app_commands
 from asgiref.sync import sync_to_async
 import re
 from django.db.models import Q
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive!"
+
+def run():
+    # Koyeb은 기본적으로 8080 포트를 체크함
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 # 2. 봇 기본 설정
 intents = discord.Intents.default()
@@ -404,4 +420,5 @@ async def create_bracket_slash(interaction: discord.Interaction):
         await interaction.followup.send("❌ 디스코드 통신 중 오류가 발생했습니다. 다시 시도해 주세요.")
 
 if __name__ == "__main__":
+    keep_alive()
     bot.run(os.getenv('DISCORD_TOKEN'))
