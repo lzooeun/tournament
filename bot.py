@@ -25,7 +25,7 @@ def home():
 
 def run():
     # Koyeb은 기본적으로 8080 포트를 체크함
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8000)
 
 def keep_alive():
     t = Thread(target=run)
