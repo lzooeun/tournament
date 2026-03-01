@@ -40,7 +40,7 @@ body {
     align-items: center;
 }
 
-.container { width: 100%; max-width: 1100px; }
+.container { width: 90%; max-width: 1200px; }
 
 h1, h2, h3 { 
     font-family: 'Space Grotesk', sans-serif; 
@@ -48,7 +48,7 @@ h1, h2, h3 {
     color: var(--text-title); 
 }
 h1 { font-size: 48px; text-transform: uppercase; text-align: center; }
-h2 { font-size: 24px; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;}
+h2 { font-size: 24px; border-bottom: 2px solid var(--border-main); padding-bottom: 10px; margin-bottom: 20px; margin-top: 50px;} 
 h3 { font-size: 16px; margin-bottom: 10px; }
 
 .subtitle { 
@@ -289,7 +289,22 @@ h3 { font-size: 16px; margin-bottom: 10px; }
 }
 
 /* Match Hub */
-.match-hub { display: grid; grid-template-columns: 200px 1fr 250px; gap: 30px; margin-top: 30px; }
+/* Match Hub 메인 컨테이너 */
+.match-hub {
+    display: grid;
+    grid-template-columns: 200px 1fr 280px; 
+    gap: 20px; /* 🎯 구역 사이의 숨통(여백)을 시원하게 늘림 */
+    align-items: start;
+    width: 100%;
+}
+
+/* 화면이 작아지면(태블릿/모바일) 세로로 한 줄로 떨어지게 만드는 반응형 */
+@media (max-width: 1200px) {
+    .match-hub {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+}
 .stage-list { display: flex; flex-direction: column; gap: 20px; }
 .stage-item { border-bottom: 1px solid var(--border-main); padding-bottom: 10px; cursor: pointer; transition: all 0.2s ease; }
 .stage-item.active { border-bottom-color: var(--text-title); }
@@ -304,7 +319,16 @@ h3 { font-size: 16px; margin-bottom: 10px; }
 .match-stage.active { display: flex; flex-direction: column; gap: 15px; }
 
 .match-list { display: flex; flex-direction: column; gap: 15px; }
-.match-card { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+.match-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-main);
+    border-radius: 6px;
+    margin-bottom: 15px;
+}
 .match-card.completed { border-color: var(--primary-color); }
 .match-time { 
     font-family: 'Space Grotesk', sans-serif; 
@@ -316,15 +340,25 @@ h3 { font-size: 16px; margin-bottom: 10px; }
     gap: 6px;
     white-space: nowrap;
 }
-.match-teams { flex-grow: 1; text-align: center; font-size: 18px; font-weight: 600; color: var(--text-title); }
+.match-teams {
+    flex: 1;
+    text-align: center;
+    padding: 0 20px;
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis; 
+    
+    font-size: 1.1rem;
+    font-weight: 700;
+}
 .match-duration { font-size: 14px; color: var(--text-muted); width: 60px; text-align: right;}
 
 .winner { color: var(--primary-color); }
 
 /* Ranking Table */
 .ranking-table { width: 100%; background: var(--bg-card); border-collapse: collapse; border: 1px solid var(--border-main); }
-.ranking-table th { background-color: var(--bg-nav); font-family: 'Space Grotesk', sans-serif; padding: 10px; text-align: left; font-size: 14px; color: var(--text-main);}
-.ranking-table td { padding: 10px; border-bottom: 1px solid var(--border-main); font-size: 14px; color: var(--text-main);}
+.ranking-table th { background-color: var(--bg-nav); font-family: 'Pretendard', sans-serif; padding: 10px; text-align: center; font-size: 14px; color: var(--text-main);}
+.ranking-table td { font-family: 'Pretendard', sans-serif; font-weight: 300; padding: 10px; border-bottom: 1px solid var(--border-main); font-size: 14px; color: var(--text-main);}
 
 /* ==========================================
    6. Tooltips & Extras
@@ -415,6 +449,7 @@ h3 { font-size: 16px; margin-bottom: 10px; }
     flex-direction: column;
     gap: 15px;
     margin-bottom: 60px;
+    text-align: left;
 }
 
 .rule-item {
@@ -458,6 +493,12 @@ h3 { font-size: 16px; margin-bottom: 10px; }
     .rule-num {
         margin-bottom: 10px;
     }
+}
+
+footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
 }
 
 /* ==========================================

@@ -435,91 +435,86 @@ async def confirm_teams_slash(interaction: discord.Interaction):
 # ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용)
 # ==========================================
-@bot.tree.command(name="대진표생성", description="[관리자 전용] 5개 팀의 풀리그(라운드 로빈) 10경기 대진표를 자동 생성합니다.")
+@bot.tree.command(name="대진표생성", description="[관리자 전용] 5팀 풀리그 대진표를 랜덤 생성합니다. (진영 밸런스 100% 보장)")
 @app_commands.default_permissions(administrator=True)
-async def create_bracket_slash(interaction: discord.Interaction):
-    
-    # 봇이 처리하는 동안 대기 상태로 만들기 (안전장치 추가)
-    try:
-        await interaction.response.defer()
-    except Exception:
-        return
+async def generate_bracket_slash(interaction: discord.Interaction):
+    # DB 작업이 있으므로 응답 대기 시간 확보
+    await interaction.response.defer()
 
     @sync_to_async
-    def generate_round_robin():
-        try:
-            teams = list(Team.objects.all())
-            
-            if len(teams) != 5:
-                return False, f"❌ 현재 등록된 팀이 {len(teams)}개입니다. 2경기 동시 진행 알고리즘은 정확히 5팀일 때 작동합니다."
+    def create_matches():
+        from tournament.models import Team, Match
+        import random
 
-            # 기존 대진표가 있다면 초기화
-            if Match.objects.exists():
-                Match.objects.all().delete()
-                for t in teams:
-                    t.wins = 0
-                    t.losses = 0
-                    t.save()
+        # 1. 팀 개수 검증 (정확히 5팀이어야 작동)
+        teams = list(Team.objects.all())
+        if len(teams) != 5:
+            return False, f"시스템 오류: 현재 등록된 팀이 {len(teams)}개입니다. 대진표는 정확히 5개 팀이 확정된 후 생성할 수 있습니다."
 
-            # 서클 알고리즘 (5팀 기준 완벽 분배)
-            import random
-            random.shuffle(teams)
-            
-            # [휴식, 팀1, 팀2, 팀3, 팀4, 팀5]
-            teams_with_bye = [None] + teams
-            new_matches = []
-            match_number = 1
+        # 2. 기존 매치 존재 여부 확인 (중복 생성 및 덮어쓰기 방지)
+        if Match.objects.exists():
+            return False, "시스템 오류: 이미 생성된 대진표 데이터가 존재합니다. 테스트 데이터를 삭제(DB 초기화)한 후 다시 시도하십시오."
 
-            # 총 5개의 라운드(타임 슬롯) 진행
-            for round_num in range(5):
-                round_matches = []
-                
-                # 양 끝에서부터 안쪽으로 짝을 지어줌
-                for i in range(3):
-                    team1 = teams_with_bye[i]
-                    team2 = teams_with_bye[5 - i]
-                    
-                    # None(휴식)과 짝지어진 팀은 이번 라운드 쉬는 팀이므로 제외
-                    if team1 is not None and team2 is not None:
-                        round_matches.append((team1, team2))
-                
-                # 라운드 내에서 1, 2경기 순서도 섞어줌
-                random.shuffle(round_matches)
-                
-                # 생성된 2경기를 DB 저장 리스트에 추가
-                for t1, t2 in round_matches:
-                    new_matches.append(Match(
-                        match_number=match_number,
-                        team_a=t1,
-                        team_b=t2,
-                        status='PENDING'
-                    ))
-                    match_number += 1
-                
-                # 서클 회전: 한 칸씩 밀어냄
-                teams_with_bye = [None, teams_with_bye[5], teams_with_bye[1], teams_with_bye[2], teams_with_bye[3], teams_with_bye[4]]
-            
-            # DB에 한 번에 10경기 저장
-            Match.objects.bulk_create(new_matches)
-            
-            return True, "✅ 5팀 완벽 분배 완료! 겹치는 팀 없이 **총 5라운드, 10경기** 대진표가 생성되었습니다."
+        # 3. 팀 랜덤 셔플 (참가자 1~5에 무작위 배정)
+        random.shuffle(teams)
+        p1, p2, p3, p4, p5 = teams
 
-        except Exception as e:
-            return False, f"❌ 대진표 생성 중 데이터베이스 오류가 발생했습니다: {str(e)}"
+        # 4. 밸런스 템플릿 로드 (앞이 Blue 진영, 뒤가 Red 진영)
+        # 수학적으로 모든 팀이 블루 2번, 레드 2번을 플레이하도록 설계된 뼈대
+        rounds = [
+            [(p4, p1), (p2, p3)], # 라운드 1 (p5 휴식)
+            [(p3, p5), (p1, p2)], # 라운드 2 (p4 휴식)
+            [(p2, p4), (p5, p1)], # 라운드 3 (p3 휴식)
+            [(p1, p3), (p4, p5)], # 라운드 4 (p2 휴식)
+            [(p5, p2), (p3, p4)]  # 라운드 5 (p1 휴식)
+        ]
 
-    # 비동기로 로직 실행 및 결과 전송
-    try:
-        success, message = await generate_round_robin()
+        # 5. 라운드 진행 순서마저 셔플 (누가 먼저 쉬고, 언제 4연전을 할지 무작위 배정)
+        random.shuffle(rounds)
+
+        # 6. DB에 10개 매치 데이터 일괄 저장
+        match_number = 1
+        created_matches = []
         
-        if success:
-            embed = discord.Embed(title="🗓️ TÆKTUBE 라운드 로빈 대진표 생성 완료!", color=0xF1C40F)
-            embed.description = message + "\n\n웹사이트의 **Match Hub**를 새로고침해서 전체 대진표와 일정을 확인하세요!"
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send(message)
-            
-    except Exception:
-        await interaction.followup.send("❌ 디스코드 통신 중 오류가 발생했습니다. 다시 시도해 주세요.")
+        for current_round in rounds:
+            for blue_team, red_team in current_round:
+                match = Match.objects.create(
+                    match_number=match_number,
+                    team_a=blue_team, # 모델 구조상 team_a를 Blue로 취급
+                    team_b=red_team,  # 모델 구조상 team_b를 Red로 취급
+                    is_completed=False
+                )
+                created_matches.append((match_number, blue_team.name, red_team.name))
+                match_number += 1
+
+        return True, created_matches
+
+    success, result = await create_matches()
+
+    # 에러 발생 시 (팀 개수 부족 or 이미 대진표 있음)
+    if not success:
+        await interaction.followup.send(f"[ ERROR ]\n{result}")
+        return
+
+    # 7. 성공 시 디스코드 시스템 보고용 임베드 출력
+    embed = discord.Embed(
+        title="[ SYSTEM: BRACKET GENERATED ]",
+        description="5팀 풀리그 대진표가 무작위 추첨 및 진영 밸런스 보장 알고리즘을 통해 성공적으로 생성되었습니다.\n(왼쪽: BLUE 진영 / 오른쪽: RED 진영)",
+        color=0x111111
+    )
+    
+    # 2경기(1라운드)씩 묶어서 출력
+    for i in range(0, 10, 2):
+        round_num = (i // 2) + 1
+        m1_num, m1_b, m1_r = result[i]
+        m2_num, m2_b, m2_r = result[i+1]
+        
+        val = f"**Game {m1_num:02d}** | {m1_b} (B) vs {m1_r} (R)\n**Game {m2_num:02d}** | {m2_b} (B) vs {m2_r} (R)"
+        embed.add_field(name=f"[ ROUND {round_num} ]", value=val, inline=False)
+
+    embed.set_footer(text="* 시스템 로직에 의해 웹사이트 Match Hub에 즉시 동기화되었습니다.")
+    
+    await interaction.followup.send(embed=embed)
 
 # ==========================================
 # /경기알림 슬래시 명령어 (관리자 전용)

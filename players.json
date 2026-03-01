@@ -346,5 +346,20 @@
       "main_position": "ADC", 
       "sub_position": "SUP"
     }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 23,
+    "fields": {
+      "riot_id": "SPOON KING#LMJ", 
+      "discord_username": "groovy8104", 
+      "discord_user_id": "395577579630886923", 
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Emerald 3", 
+      "solo_rank": "Platinum 3", 
+      "main_position": "MID", 
+      "sub_position": "ADC"
+    }
   }
 ]

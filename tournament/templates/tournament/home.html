@@ -312,14 +312,24 @@
             <div>
                 <h3 style="margin-bottom: 15px;">Current Ranking</h3>
                 <table class="ranking-table">
-                    <tr><th>Rank</th><th>Team</th><th>W/L</th></tr>
-                    {% for team in rankings %}
-                    <tr>
-                        <td>{{ forloop.counter }}</td>
-                        <td class="{% if forloop.first and team.wins > 0 %}winner{% endif %}">{{ team.name }}</td>
-                        <td>{{ team.wins }}/{{ team.losses }}</td>
-                    </tr>
-                    {% endfor %}
+                    <thead>
+                        <tr>
+                            <th>RANK</th>
+                            <th>TEAM</th>
+                            <th>W/L</th>
+                            <th>AVG TIME</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in standings %}
+                        <tr>
+                            <td><strong>{{ row.rank }}</strong></td>
+                            <td><strong>{{ row.team.name }}</strong></td>
+                            <td>{{ row.wins }}/{{ row.losses }}</td>
+                            <td>{{ row.avg_win_time_str }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -365,7 +375,6 @@
                 </div>
             {% endfor %}
         </div>
-        <div class="container">
         <h2 id="schedule">[ OFFICIAL SCHEDULE ]</h2>
         <div class="schedule-grid">
             <div class="schedule-card">
@@ -394,69 +403,38 @@
                 <div class="sch-desc">일정 추후 공지</div>
             </div>
         </div>
-    </div>
 
-    <div class="container">
-        <h2 id="rules">[ TOURNAMENT RULEBOOK ]</h2>
-        <div class="rules-list">
-            <div class="rule-item">
-                <div class="rule-num">01</div>
-                <div class="rule-text">
-                    <strong>ACCOUNT INTEGRITY | 계정 원칙</strong>
-                    <p>반드시 본 계정만 사용해야 합니다. 확인되지 않은 부계정(Smurf) 적발 시 즉각 실격되며 환불은 불가합니다.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">02</div>
-                <div class="rule-text">
-                    <strong>PUNCTUALITY | 지각 규정</strong>
-                    <p>경기 5분 전 로비 접속 필수. 지각 시 5분 단위로 밴 카드 1장씩 압수되며, 15분 이상 지각 시 해당 팀은 실격(Auto DQ) 처리됩니다.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">03</div>
-                <div class="rule-text">
-                    <strong>CONDUCT | 매너 및 채팅</strong>
-                    <p>도발이나 감정 표현은 허용되나, 선을 넘지 마십시오. 타인에게 직접적인 욕설은 금지합니다. 누적 2회 경고 후에도 지속될 경우(Three Strikes) 팀 전체가 퇴출됩니다.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">04</div>
-                <div class="rule-text">
-                    <strong>TECHNICAL PAUSE | 퍼즈 규정</strong>
-                    <p>인터넷 및 하드웨어 등 합당한 문제 발생 시에만 허용되며, 경기당 팀별 최대 10분으로 엄격히 제한됩니다. 상대 팀의 중단 요청(Respect the Ask) 시 즉각 수용해야 합니다. </p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">05</div>
-                <div class="rule-text">
-                    <strong>Communication & Suppport | 소통 및 운영팀</strong>
-                    <p>게임중에는 팀 전체가 배정된 음성 채널에 들어가 있어야하며, 관전자는 마이크 사용이 금지됩니다. 문제 발생 시 관리자에게 연락해주세요.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">06</div>
-                <div class="rule-text">
-                    <strong>Registration & Fees | 등록 및 환불</strong>
-                    <p>등록 마감 후 참가 비용 청구 예정입니다. 실격 시 환불은 없습니다.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">07</div>
-                <div class="rule-text">
-                    <strong>FEARLESS DRAFT | 피어리스 밴픽</strong>
-                    <p>본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다. 넓은 챔피언 폭 준비는 필수입니다.</p>
-                </div>
-            </div>
-            <div class="rule-item">
-                <div class="rule-num">08</div>
-                <div class="rule-text">
-                    <strong>ORGANIZER'S NOTE | 운영자 유의사항</strong>
-                    <p>참가자와 운영진 모두 프로 선수가 아닙니다. 상호 존중을 지켜주시고 시스템의 통제에 따라주십시오.</p>
-                </div>
+    <h2 id="rules">[ SYSTEM & FORMAT ]</h2>
+    <div class="rules-list">
+        <div class="rule-item">
+            <div class="rule-num">01</div>
+            <div class="rule-text">
+                <strong>LEAGUE FORMAT | 대진표 및 예선전 진행 방식</strong>
+                <p>5팀 풀리그(Round Robin)로 총 10경기가 진행됩니다. 대진표와 진영(Blue/Red 각 2회 보장)은 시스템에 의해 100% 무작위로 추첨 및 배정됩니다.</p>
             </div>
         </div>
-    </div>        
+        <div class="rule-item">
+            <div class="rule-num">02</div>
+            <div class="rule-text">
+                <strong>TIE-BREAKERS | 순위 결정 시스템</strong>
+                <p>풀리그 랭킹은 다음 순서로 산정됩니다: 1순위 다승(Wins) | 2순위 승자승(Head-to-Head) | 3순위 평균 최단 승리 시간(Speedrun). 동점 시 가장 빠르게 승리한 팀이 진출합니다.</p>
+            </div>
+        </div>
+        <div class="rule-item">
+            <div class="rule-num">03</div>
+            <div class="rule-text">
+                <strong>PLAYOFFS | 세미파이널 진출</strong>
+                <p>풀리그 종료 후 상위 4개 팀이 플레이오프에 진출합니다. 대진은 [ 1위 vs 4위 ] 및 [ 2위 vs 3위 ]로 강제 배정되며, 승리 팀이 결승에 진출합니다.</p>
+            </div>
+        </div>
+        <div class="rule-item">
+            <div class="rule-num">04</div>
+            <div class="rule-text">
+                <strong>FEARLESS DRAFT | 피어리스 밴픽</strong>
+                <p>다전제 진행 시, 본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다.</p>
+            </div>
+        </div>
+    </div>    
 </div>
 
     <footer>
