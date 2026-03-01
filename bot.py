@@ -18,6 +18,8 @@ import re
 from django.db.models import Q
 
 ADMIN_CHANNEL_ID = 1477441424764178604
+TEAM_JOIN_CHANNEL_ID = 1477537891214426262
+RESULT_SUBMIT_CHANNEL_ID = 1477537918817013760
 
 app = Flask('')
 
@@ -137,6 +139,10 @@ async def team_autocomplete(interaction: discord.Interaction, current: str) -> l
     )
 @app_commands.autocomplete(winner_team=team_autocomplete)
 async def submit_result(interaction: discord.Interaction, winner_team: str, duration: str, image: discord.Attachment):
+    if interaction.channel_id != RESULT_SUBMIT_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{RESULT_SUBMIT_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+    
     # 1. 이미지 파일 형식 확인
     if not image.content_type.startswith('image/'):
         await interaction.response.send_message("❌ 이미지 파일만 첨부할 수 있습니다!", ephemeral=True)
@@ -258,6 +264,9 @@ async def cancel_result_slash(interaction: discord.Interaction, match_number: in
 @app_commands.describe(team_name="가입할 팀을 선택하세요")
 @app_commands.autocomplete(team_name=team_autocomplete)
 async def join_team_slash(interaction: discord.Interaction, team_name: str):
+    if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
 
     global TEAM_JOIN_LOCKED
     if TEAM_JOIN_LOCKED:
@@ -422,7 +431,7 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send("❌ 봇에게 권한이 부족합니다! 서버 설정에서 봇의 역할을 최상단으로 올리고, '채널 관리' 및 '역할 관리' 권한을 주세요.")
     except Exception as e:
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
-        
+
 # ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용)
 # ==========================================
@@ -511,6 +520,188 @@ async def create_bracket_slash(interaction: discord.Interaction):
             
     except Exception:
         await interaction.followup.send("❌ 디스코드 통신 중 오류가 발생했습니다. 다시 시도해 주세요.")
+
+# ==========================================
+# /경기알림 슬래시 명령어 (관리자 전용)
+# ==========================================
+@bot.tree.command(name="경기알림", description="[관리자 전용] 특정 매치에 참여하는 양 팀의 비밀 채널에 경기 준비 알림(Ping)을 보냅니다.")
+@app_commands.describe(match_num="알림을 보낼 매치 번호 (예: 1)")
+@app_commands.default_permissions(administrator=True)
+async def match_notification_slash(interaction: discord.Interaction, match_num: int):
+    # 디스코드 봇이 응답을 생각하는 시간을 벌어줌 (데이터베이스 조회 시 필수)
+    await interaction.response.defer(ephemeral=True)
+
+    # 1. DB에서 해당 번호의 매치 정보 가져오기
+    @sync_to_async
+    def get_match_teams(m_num):
+        from tournament.models import Match
+        
+        match = Match.objects.filter(match_number=m_num).first()
+        if not match:
+            return None, f"❌ Game {m_num} 매치를 찾을 수 없습니다."
+        if match.is_completed:
+            return None, f"❌ Game {m_num} 매치는 이미 종료되었습니다."
+        if not match.team_a or not match.team_b:
+            return None, f"❌ Game {m_num} 매치에 아직 팀이 모두 배정되지 않았습니다."
+        
+        return (match.team_a.name, match.team_b.name), None
+
+    teams, error_msg = await get_match_teams(match_num)
+    
+    if error_msg:
+        await interaction.followup.send(error_msg)
+        return
+        
+    team_a_name, team_b_name = teams
+    guild = interaction.guild
+    notified_teams = []
+    failed_teams = []
+
+    # 2. 양 팀 채널에 보낼 🚨 경고용 브루탈리스트 임베드 디자인
+    embed = discord.Embed(
+        title="[ SYSTEM NOTIFICATION ]",
+        description=f"**GAME {match_num}** 시작이 임박했습니다.\n\n해당 매치에 참여하는 로스터 전원은 즉시 **인게임 로비** 및 본 디스코드 **음성 채널**로 이동하여 대기하십시오.",
+        color=0xE74C3C # 경고/긴급 느낌을 주는 시크한 레드
+    )
+    embed.add_field(name="[ MATCHUP ]", value=f"**{team_a_name}** vs **{team_b_name}**", inline=False)
+    embed.add_field(name="[ PENALTY WARNING ]", value="지각 시 5분 단위로 밴 카드가 압수되며, 15분 경과 시 실격(Auto DQ) 처리됩니다.", inline=False)
+    embed.set_footer(text="* Punctuality is strictly enforced.")
+
+    # 3. 각 팀의 채널을 찾아서 메시지 쏘기
+    for team_name in (team_a_name, team_b_name):
+        # 팀 역할(Role) 찾기 (멘션용)
+        role = discord.utils.get(guild.roles, name=team_name)
+        
+        # 팀 카테고리 찾기 (예: "[ Team A ]")
+        category_name = f"[ {team_name} ]"
+        category = discord.utils.get(guild.categories, name=category_name)
+        
+        # 카테고리 안의 텍스트 채널(전략-회의) 찾기
+        target_channel = None
+        if category:
+            for channel in category.text_channels:
+                if "전략-회의" in channel.name:
+                    target_channel = channel
+                    break
+        
+        # 채널과 역할이 모두 존재하면 멘션과 함께 알림 쏘기
+        if target_channel and role:
+            try:
+                # 🔔 역할 멘션(@Team A)을 포함해서 전송!
+                await target_channel.send(content=f"🔔 {role.mention}", embed=embed)
+                notified_teams.append(team_name)
+            except Exception:
+                failed_teams.append(team_name)
+        else:
+            failed_teams.append(team_name)
+
+    # 4. 명령어를 입력한 관리자에게 결과 보고
+    result_msg = f"✅ **GAME {match_num}** 알림 전송 결과:\n"
+    if notified_teams:
+        result_msg += f"- 🟢 전송 성공: **{', '.join(notified_teams)}** 비밀 채널\n"
+    if failed_teams:
+        result_msg += f"- 🔴 전송 실패: **{', '.join(failed_teams)}** (채널이나 역할을 찾을 수 없음)"
+        
+    await interaction.followup.send(result_msg)
+
+
+# ==========================================
+# /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 피어리스 밴픽 적용
+# ==========================================
+@bot.tree.command(name="공지배포", description="[관리자 전용] 공식 채널에 시스템 봇 이름으로 공지사항을 배포합니다.")
+@app_commands.describe(notice_type="배포할 공지 종류를 선택하세요")
+@app_commands.choices(notice_type=[
+    app_commands.Choice(name="1. 메인 공지 및 스케줄", value="schedule"),
+    app_commands.Choice(name="2. 공식 대회 룰북 (피어리스 밴픽 포함)", value="rules"),
+    app_commands.Choice(name="3. 웹사이트 링크", value="website"),
+])
+@app_commands.default_permissions(administrator=True)
+async def send_official_notice(interaction: discord.Interaction, notice_type: str):
+    
+    embed_color = 0x111111
+    
+    if notice_type == "schedule":
+        embed = discord.Embed(
+            title="[ 2026 TÆKTUBE INVITATIONAL ]",
+            description="**MONTREAL EDITION S1**\n\n본 대회는 주최자의 개인적인 만족을 위해 기획되었습니다.\n모든 참가자는 시스템의 통제에 따라야 하며, 웹사이트와 디스코드 봇을 통해 일정이 관리됩니다.",
+            color=embed_color
+        )
+        embed.add_field(
+            name="[ OFFICIAL SCHEDULE ]", 
+            value=(
+                "- **03.10** | 선수 등록 마감 (25명 선착순 조기 마감 가능)\n"
+                "- **03.10 ~** | 공식 스크림 기간\n"
+                "- **03.21** | 팀 로스터 등록 및 확정일\n"
+                "- **03.28** | 본선 1일차 (풀리그 진행)\n"
+                "- **03.29** | 4강전 (Semi-Finals)\n"
+                "- **T.B.D** | 결승전 (Finals - 추후 결정)"
+            ), 
+            inline=False
+        )
+        embed.set_footer(text="* STRICTLY FOR PERSONAL SATISFACTION")
+        
+    elif notice_type == "rules":
+        embed = discord.Embed(
+            title="[ TOURNAMENT RULEBOOK ]",
+            description="원활한 대회 진행을 위한 공식 시스템 규정입니다. 미숙지로 인한 불이익은 전적으로 본인에게 있습니다.",
+            color=embed_color
+        )
+        embed.add_field(
+            name="01. ACCOUNT INTEGRITY | 계정 원칙", 
+            value="- 반드시 본 계정만 사용해야 합니다. 부계정(Smurf) 적발 시 즉각 실격되며 환불은 불가합니다.\n* [ EX ] 대리 게임 또는 의심 사례 발생 시 운영진이 디스코드 화면 공유 등으로 본인 인증을 요구할 수 있습니다.", 
+            inline=False
+        )
+        embed.add_field(
+            name="02. PUNCTUALITY | 지각 규정", 
+            value="- 경기 5분 전 지정 로비 및 보이스 접속 필수.\n- 지각 시 5분 단위로 밴 카드 1장씩 압수되며, 15분 이상 지각 시 해당 팀은 실격(Auto DQ) 처리됩니다.\n* [ EX ] 20:00 경기일 경우, 20:05~20:09 도착 시 밴 카드 1장 압수.", 
+            inline=False
+        )
+        embed.add_field(
+            name="03. CONDUCT | 매너 및 채팅", 
+            value="- 도발이나 감정 표현은 허용되나, 타인에게 직접적인 욕설은 엄격히 금지합니다.\n- 상대 팀의 중단 요청(Respect the Ask) 시 즉각 수용해야 합니다.\n- 누적 2회 경고 후에도 지속될 경우(Three Strikes) 팀 전체가 퇴출됩니다.", 
+            inline=False
+        )
+        embed.add_field(
+            name="04. TECHNICAL PAUSE | 퍼즈 규정", 
+            value="- 인터넷 및 하드웨어 등 합당한 문제 발생 시에만 허용되며, 경기당 팀별 최대 10분으로 엄격히 제한됩니다.\n* [ EX ] 핑 문제, 마우스 연결 끊김 등. 단, 화장실이나 담배 타임 목적의 퍼즈는 절대 불가합니다.", 
+            inline=False
+        )
+        embed.add_field(
+            name="05. COMMUNICATION | 소통 및 운영", 
+            value="- 게임 중에는 팀 전체가 배정된 음성 채널에 들어가 있어야 합니다.\n- 관전자는 마이크 사용이 절대 금지됩니다.\n- 문제 발생 및 이의 제기 시 시스템 관리자(`JYPIMNIDA`)에게 즉각 연락하십시오.", 
+            inline=False
+        )
+        embed.add_field(
+            name="06. REGISTRATION & FEES | 등록 및 환불", 
+            value="- 등록 마감 후 참가 비용이 청구될 예정입니다.\n- 룰 위반 및 지각 등으로 인한 실격 시 어떠한 경우에도 환불은 없습니다.", 
+            inline=False
+        )
+        embed.add_field(
+            name="07. FEARLESS DRAFT | 피어리스 밴픽", 
+            value="- 본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다.\n* [ EX ] 1세트에서 A팀이 '아리'를 사용했다면, 2세트와 3세트에서 A팀은 '아리'를 픽할 수 없습니다. (상대 팀은 가능)", 
+            inline=False
+        )
+        embed.add_field(
+            name="08. ORGANIZER'S NOTE | 운영자 유의사항", 
+            value="- 참가자와 운영진 모두 프로 선수가 아닙니다. 상호 존중을 지켜주시고 시스템의 통제에 따라주십시오.", 
+            inline=False
+        )
+        
+    elif notice_type == "website":
+        embed = discord.Embed(
+            title="[ OFFICIAL PLATFORM ]",
+            description="대회의 모든 데이터는 아래 웹사이트에서 실시간으로 동기화됩니다.\n질문하기 전에 웹사이트를 먼저 확인하십시오.",
+            color=embed_color
+        )
+        embed.add_field(name="[ LINK ]", value="https://taektube.lol/", inline=False) 
+        embed.add_field(
+            name="[ SYSTEM TRACKING ]", 
+            value="- 실시간 풀리그 랭킹 및 경기 결과\n- 참가자별 티어 및 포지션 분포표\n- 확정된 팀별 공식 로스터", 
+            inline=False
+        )
+
+    await interaction.response.send_message("✅ 시스템 봇이 해당 채널에 오피셜 공지를 배포했습니다.", ephemeral=True)
+    await interaction.channel.send(embed=embed)
 
 if __name__ == "__main__":
     keep_alive()
