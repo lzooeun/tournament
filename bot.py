@@ -17,6 +17,8 @@ from asgiref.sync import sync_to_async
 import re
 from django.db.models import Q
 
+ADMIN_CHANNEL_ID = 1477441424764178604
+
 app = Flask('')
 
 @app.route('/')
@@ -45,12 +47,14 @@ async def on_ready():
     print('✅ 슬래시 명령어 동기화 완료!')
 
 class ApprovalView(discord.ui.View):
-    def __init__(self, match_id, image_url, winner_team, duration): 
+    def __init__(self, match_id, image_url, winner_team, duration, original_channel_id, submitter_id):
         super().__init__(timeout=None)
         self.match_id = match_id
         self.image_url = image_url
-        self.winner_team = winner_team 
+        self.winner_team = winner_team
         self.duration = duration
+        self.original_channel_id = original_channel_id
+        self.submitter_id = submitter_id
 
     @discord.ui.button(label="승인 (Approve)", style=discord.ButtonStyle.success)
     async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -65,7 +69,7 @@ class ApprovalView(discord.ui.View):
                 # 패배팀 찾기
                 loser = match.team_b if match.team_a == winner else match.team_a
                 
-                # 👇 추가된 부분: 승패 카운트 및 기존 status 변경 로직
+                # 승패 카운트 및 기존 status 변경 로직
                 winner.wins += 1
                 winner.save()
                 loser.losses += 1
@@ -80,11 +84,48 @@ class ApprovalView(discord.ui.View):
             return winner.name if winner else "알 수 없음"
             
         winner_name = await update_match()
-        await interaction.response.send_message(f"✅ 매치 #{self.match_id} 승인 완료! ({winner_name} 1승 추가, 스크린샷 웹사이트 반영됨)", ephemeral=False)
+        original_channel = bot.get_channel(self.original_channel_id)
+        if original_channel:
+            await original_channel.send(f"📢 <@{self.submitter_id}>님이 제출하신 **매치 #{self.match_id}** 결과가 승인되었습니다! ({winner_name} 승리)")
+        
+        # 관리자 채널의 버튼은 눌렀으니 비활성화 (버튼 없애기)
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+        
+        # 관리자에게만 보이는 완료 알림
+        await interaction.response.send_message("✅ 승인 처리 완료!", ephemeral=True)
         self.stop()
 
     @discord.ui.button(label="거절 (Reject)", style=discord.ButtonStyle.danger)
     async def reject_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        original_channel = bot.get_channel(self.original_channel_id)
+        if original_channel:
+            await original_channel.send(f"❌ <@{self.submitter_id}>님이 제출하신 **매치 #{self.match_id}** 결과가 관리자에 의해 거절되었습니다.")
+        
+        # 버튼 비활성화
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
+        await interaction.response.send_message(
+            f"❌ 매치 #{self.match_id} 결과가 관리자에 의해 **거절**되었습니다.\n"
+            f"제출된 스크린샷과 승리팀(`{self.winner_team}`) 정보가 일치하는지 확인 후 다시 제출해 주세요.", 
+            ephemeral=False
+        )
+        self.stop()
+
+    @discord.ui.button(label="거절 (Reject)", style=discord.ButtonStyle.danger)
+    async def reject_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        original_channel = bot.get_channel(self.original_channel_id)
+        if original_channel:
+            await original_channel.send(f"❌ <@{self.submitter_id}>님이 제출하신 **매치 #{self.match_id}** 결과가 관리자에 의해 거절되었습니다.")
+        
+        # 👇 2. 버튼 비활성화
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
         await interaction.response.send_message(
             f"❌ 매치 #{self.match_id} 결과가 관리자에 의해 **거절**되었습니다.\n"
             f"제출된 스크린샷과 승리팀(`{self.winner_team}`) 정보가 일치하는지 확인 후 다시 제출해 주세요.", 
@@ -139,6 +180,11 @@ async def submit_result(interaction: discord.Interaction, winner_team: str, dura
         # 매치 상대팀이 누군지도 같이 넘겨주면 확인하기 좋음
         opponent = match.team_b.name if match.team_a == team else match.team_a.name
         return match.id, opponent, None
+    
+    admin_channel = bot.get_channel(ADMIN_CHANNEL_ID)
+    if not admin_channel:
+        await interaction.response.send_message("❌ 관리자 채널 세팅 오류! 개발자에게 문의하세요.", ephemeral=True)
+        return
 
     # 함수 실행해서 매치 정보 받아오기
     match_id, opponent_name, error_msg = await get_pending_match(winner_team)
@@ -163,8 +209,10 @@ async def submit_result(interaction: discord.Interaction, winner_team: str, dura
     embed.set_image(url=image.url)
 
     # 4. 버튼 뷰 연결 및 메시지 전송
-    view = ApprovalView(match_id, image.url, winner_team, duration)
-    await interaction.response.send_message(embed=embed, view=view)
+    view = ApprovalView(match_id, image.url, winner_team, duration, interaction.channel_id, interaction.user.id)
+    await admin_channel.send(embed=embed, view=view)
+    
+    await interaction.response.send_message("📨 결과 영수증이 관리자에게 전송되었습니다. 승인을 기다려주세요!", ephemeral=True)
 
 # ==========================================
 # /결과취소 슬래시 명령어 (관리자 전용)

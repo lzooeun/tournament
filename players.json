@@ -36,7 +36,8 @@
       "riot_id": "God thunder#kr44", 
       "discord_username": "distid_00100", 
       "discord_user_id": "329702529602420737", 
-      "tier": 1, "team": null, 
+      "tier": 1, 
+      "team": null, 
       "highest_rank": "Diamond 3", 
       "solo_rank": "Emerald 2", 
       "main_position": "JGL", 
@@ -55,7 +56,7 @@
       "highest_rank": "Diamond 3", 
       "solo_rank": null, 
       "main_position": "ADC", 
-      "sub_position": null 
+      "sub_position": "TOP" 
     } 
   },
   {
@@ -112,8 +113,8 @@
       "discord_user_id": "1338183098617167904", 
       "tier": 2, 
       "team": null, 
-      "highest_rank": null, 
-      "solo_rank": null, 
+      "highest_rank": "Diamond 3", 
+      "solo_rank": "Diamond 4", 
       "main_position": "ADC", 
       "sub_position": "SUP" 
     }
@@ -176,8 +177,7 @@
       "highest_rank": "Platinum 1", 
       "solo_rank": "Platinum 2", 
       "main_position": "ADC", 
-      "sub_position": null, 
-      "note": "모든 포지션 가능"  
+      "sub_position": "FILL" 
     }
   },
 

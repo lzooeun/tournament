@@ -4,16 +4,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="2026 TÆKTUBE INVITATIONAL">
+    <meta property="og:description" content="Montreal Edition S1 | 전체 대진표, 참가자 목록, 실시간 랭킹 확인하기">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://taektube-montreal.onrender.com/"> <meta property="og:image" content="https://media.discordapp.net/attachments/402182890227761156/1477507199432654914/taektube_og.png?ex=69a5034f&is=69a3b1cf&hm=6572006a909ab81304f80c936f6a11724b1db44e1042d4c09c593c8416e16c92&=&format=webp&quality=lossless&width=1620&height=850"> 
+    <meta name="theme-color" content="#6C85DE">
     <title>2026 TÆKTUBE INVITATIONAL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="{% static 'tournament/css/style.css' %}">
+    <link rel="icon" type="image/png" href="https://media.discordapp.net/attachments/402182890227761156/1477507198551593052/taektube_logo.png?ex=69a5034e&is=69a3b1ce&hm=f7d8cad2f614e95dcf3d8911c299f00df4d548ccce22ce8b36218b2e87492dd1&=&format=webp&quality=lossless&width=1382&height=1382">
 </head>
 <nav class="navbar">
     <div class="nav-container">
-        <div class="nav-logo">TÆKTUBE</div>
+        <div class="nav-logo">
+            <a href="/" class="nav-logo">
+                <img src="https://media.discordapp.net/attachments/402182890227761156/1477507198849650788/taektube_logo_trans.png?ex=69a5034e&is=69a3b1ce&hm=830c8d89d828728c05f30d86a06080ea5c5062c5df4946c4d201bdd0bfe2e661&=&format=webp&quality=lossless&width=644&height=840" alt="TÆKTUBE Logo"class="logo-img">
+                <span>TÆKTUBE</span> 
+            </a>
+        </div>
         <ul class="nav-links">
             <li><a href="#player-list">Players</a></li>
             <li><a href="#team-list">Teams</a></li>
@@ -27,35 +38,225 @@
     <div class="subtitle">Montreal Edition <span class="badge">S1</span></div>
 
     <h2 id="player-list">Player List</h2>
-    {% for tier_num, players in players_by_tier.items %}
-    <div class="tier-row">
-        <div class="tier-label">{{ tier_num }} Tier</div>
-        <div class="player-grid">
-            {% for player in players %}
-            
-            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                
-                <div class="card-title">{{ player.riot_id }}</div>
-                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                <div class="tooltip-content">
-                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                    <div><span>주 포지션</span> <strong>{{ player.get_main_position_display }}</strong></div>
-                    <div><span>부 포지션</span> <strong>{{ player.get_sub_position_display }}</strong></div>
+    
+    <div class="toggle-container">
+        <button id="btn-tier" class="toggle-btn active" onclick="toggleView('tier')">티어별 보기</button>
+        <button id="btn-position" class="toggle-btn" onclick="toggleView('position')">포지션별 보기</button>
+    </div>
+    <div id="view-tier">
+        {% for tier_num, players in players_by_tier.items %}
+            <div class="tier-row">
+                <div class="tier-label">{{ tier_num }} Tier</div>
+                <div class="player-grid">
+                    {% for player in players %}
+                    
+                    <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                        
+                        <div class="card-title">
+                            {{ player.riot_id }}
+                            {% if player.team %}
+                                <span class="player-team-badge">{{ player.team.name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        <div class="tooltip-content">
+                            <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                            <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                            <div><span>주 포지션</span> <strong>{{ player.get_main_position_display }}</strong></div>
+                            <div><span>부 포지션</span> <strong>{{ player.get_sub_position_display }}</strong></div>
 
-                    {% if player.note %}
-                    <div class="player-note">
-                        <span>참고</span> <strong>{{ player.note }}</strong>
+                            {% if player.note %}
+                            <div class="player-note">
+                                <span>참고</span> <strong>{{ player.note }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
-                    {% endif %}
+                    {% empty %}
+                    <div class="card"><div class="card-sub">등록된 참가자가 없습니다.</div></div>
+                    {% endfor %}
                 </div>
             </div>
-            {% empty %}
-            <div class="card"><div class="card-sub">등록된 참가자가 없습니다.</div></div>
-            {% endfor %}
+        {% endfor %}
+    </div>
+    <div id="view-position" style="display: none;">
+        
+        <div class="position-row">
+            <div class="position-label">TOP</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
+                        
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">
+                                {{ player.riot_id }}
+                                {% if player.main_position == 'TOP' %}
+                                    <span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'TOP' %}
+                                    <span class="pos-badge sub-pos">Sub</span>
+                                {% else %}
+                                    <span class="pos-badge fill-pos">Fill</span> 
+                                {% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="position-row">
+            <div class="position-label">JGL</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
+                        
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">
+                                {{ player.riot_id }}
+                                {% if player.main_position == 'JGL' %}
+                                    <span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'JGL' %}
+                                    <span class="pos-badge sub-pos">Sub</span>
+                                {% else %}
+                                    <span class="pos-badge fill-pos">Fill</span> 
+                                {% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="position-row">
+            <div class="position-label">MID</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
+                        
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">
+                                {{ player.riot_id }}
+                                {% if player.main_position == 'MID' %}
+                                    <span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'MID' %}
+                                    <span class="pos-badge sub-pos">Sub</span>
+                                {% else %}
+                                    <span class="pos-badge fill-pos">Fill</span> 
+                                {% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="position-row">
+            <div class="position-label">ADC</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
+                        
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">
+                                {{ player.riot_id }}
+                                {% if player.main_position == 'ADC' %}
+                                    <span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'ADC' %}
+                                    <span class="pos-badge sub-pos">Sub</span>
+                                {% else %}
+                                    <span class="pos-badge fill-pos">Fill</span> 
+                                {% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+        <div class="position-row">
+            <div class="position-label">SUP</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
+                        
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">
+                                {{ player.riot_id }}
+                                {% if player.main_position == 'SUP' %}
+                                    <span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'SUP' %}
+                                    <span class="pos-badge sub-pos">Sub</span>
+                                {% else %}
+                                    <span class="pos-badge fill-pos">Fill</span> 
+                                {% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
         </div>
     </div>
-    {% endfor %}
 
     <h2 id="team-list">Team List</h2>
     <div class="team-grid">
@@ -191,6 +392,25 @@ function switchTab(tabId, element) {
     // 4. 클릭한 메뉴 활성화
     element.classList.add('active');
     element.style.borderBottomColor = 'var(--text-dark)';
+}
+
+function toggleView(viewType) {
+    const tierView = document.getElementById('view-tier');
+    const positionView = document.getElementById('view-position');
+    const btnTier = document.getElementById('btn-tier');
+    const btnPosition = document.getElementById('btn-position');
+
+    if (viewType === 'tier') {
+        tierView.style.display = 'block';
+        positionView.style.display = 'none';
+        btnTier.classList.add('active');
+        btnPosition.classList.remove('active');
+    } else {
+        tierView.style.display = 'none';
+        positionView.style.display = 'block';
+        btnPosition.classList.add('active');
+        btnTier.classList.remove('active');
+    }
 }
 </script>
 
