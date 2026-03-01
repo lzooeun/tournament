@@ -15,7 +15,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'taektube-montreal.onrender.com'
+    'taektube-montreal.onrender.com',
     'taektube.lol',
     'www.taektube.lol',
     'localhost',
