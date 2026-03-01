@@ -358,11 +358,17 @@ footer {
 }
 
 @media (max-width: 768px) {
-    body { padding: 20px 10px; }
+    body { 
+        padding: 20px 10px; 
+        padding-top: 80px;
+    }
     h1 { font-size: 32px; }
     .subtitle { font-size: 16px; }
     
     nav { gap: 15px; font-size: 14px; flex-wrap: wrap; }
+    .nav-logo span {
+        display: none;
+    }
     
     .player-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
     .team-grid { grid-template-columns: 1fr; }
