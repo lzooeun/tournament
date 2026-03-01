@@ -322,16 +322,15 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
-# /팀확정 슬래시 명령어 (관리자 전용)
+# /팀확정 슬래시 명령어 (관리자 전용) - 카테고리/채널 자동 생성 포함
 # ==========================================
 TEAM_JOIN_LOCKED = False 
 
-@bot.tree.command(name="팀확정", description="[관리자 전용] 팀선택을 마감하고, 팀별로 역할을 자동 생성 및 부여합니다.")
+@bot.tree.command(name="팀확정", description="[관리자 전용] 팀선택 마감, 역할 부여 및 팀별 비밀 채널을 자동 생성합니다.")
 @app_commands.default_permissions(administrator=True)
 async def confirm_teams_slash(interaction: discord.Interaction):
     global TEAM_JOIN_LOCKED
     
-    # 1. 명령어는 무조건 서버(길드) 안에서만 써야 함 (DM 불가)
     guild = interaction.guild
     if not guild:
         await interaction.response.send_message("❌ 이 명령어는 디스코드 서버 안에서만 사용할 수 있습니다.", ephemeral=True)
@@ -342,10 +341,10 @@ async def confirm_teams_slash(interaction: discord.Interaction):
     # DB에서 팀과 해당 팀원들의 디스코드 ID 가져오기
     @sync_to_async
     def get_teams_and_players():
+        from tournament.models import Team
         teams = list(Team.objects.prefetch_related('players').all())
         team_data = []
         for t in teams:
-            # 팀원들의 디스코드 고유 ID 리스트 추출
             p_ids = [p.discord_user_id for p in t.players.all()]
             team_data.append((t.name, p_ids))
         return team_data
@@ -355,54 +354,75 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         log_msgs = []
 
         for team_name, player_ids in teams_data:
-            # 2. 서버에 해당 팀 이름과 똑같은 역할(Role)이 있는지 검색
+            # 1. 역할(Role) 확인 및 생성
             role = discord.utils.get(guild.roles, name=team_name)
-            
-            # 3. 역할이 없다면 봇이 즉석에서 새로 생성
             if not role:
                 role = await guild.create_role(
                     name=team_name, 
-                    hoist=True, # 우측 멤버 목록에 그룹으로 묶어서 보여주기
-                    mentionable=True, # @팀이름 으로 멘션 가능하게 하기
-                    reason="TÆKTUBE 탕치기 마감 자동 생성"
+                    hoist=True, 
+                    mentionable=True, 
+                    reason="TÆKTUBE 팀 확정 자동 생성"
                 )
-                log_msgs.append(f"✨ `{team_name}` 역할을 새로 생성했습니다.")
+                log_msgs.append(f"✨ `{team_name}` 역할 생성 완료")
 
-            # 4. 해당 팀원들에게 역할 부여하기
+            # 2. 팀원들에게 역할 부여
             assigned_count = 0
             for d_id in player_ids:
-                # 디스코드 ID로 서버 내의 유저 객체 찾기
                 member = guild.get_member(int(d_id))
                 if not member:
                     try:
-                        # 봇이 유저를 못 찾으면 서버에서 강제로 검색해서 데려오기
                         member = await guild.fetch_member(int(d_id))
                     except discord.NotFound:
-                        continue # 이 서버에 없는 유저면 패스
+                        continue 
                 
-                # 유저에게 아직 이 역할이 없다면 부여
                 if member and role not in member.roles:
                     await member.add_roles(role)
                     assigned_count += 1
             
-            log_msgs.append(f"`{team_name}` 소속 {assigned_count}명에게 역할을 부여했습니다.")
+            log_msgs.append(f"👥 `{team_name}` {assigned_count}명 역할 부여 완료")
 
-        # 5. 탕치기 잠금 스위치 ON
+            # ==========================================
+            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트
+            # ==========================================
+            category_name = f"[ {team_name} ]"
+            category = discord.utils.get(guild.categories, name=category_name)
+            
+            # 권한 세팅: @everyone은 못 보고, '해당 팀 역할'만 볼 수 있게 완벽 차단!
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False, connect=False),
+                role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, send_messages=True)
+            }
+
+            if not category:
+                # 카테고리 생성 (권한 적용)
+                category = await guild.create_category(name=category_name, overwrites=overwrites)
+                
+                # 그 카테고리 안에 텍스트 채널과 음성 채널 생성
+                await guild.create_text_channel(name="전략-회의", category=category)
+                await guild.create_voice_channel(name="🔊-보이스", category=category)
+                
+                log_msgs.append(f"📁 `{team_name}` 전용 비밀 채널 생성 완료")
+
+        # 4. 탕치기 잠금 스위치 ON
         TEAM_JOIN_LOCKED = True
 
-        # 6. 결과창(Embed) 예쁘게 띄우기
+        # 5. 결과창 띄우기
         result_text = "\n".join(log_msgs)
-        embed = discord.Embed(title="🔒 팀 확정 및 역할 부여 완료!", color=0xE74C3C) # 마감 느낌의 강렬한 레드
-        embed.description = f"**이적 시장 기간이 공식적으로 종료되었습니다.**\n더 이상 `/팀가입` 명령어를 사용할 수 없습니다.\n\n{result_text}"
-        embed.set_footer(text="참가자들은 각 팀의 음성 채널로 모여주시기 바랍니다.")
+        embed = discord.Embed(title="🔒 팀 확정 & 채널 세팅 완료!", color=0xE74C3C)
+        embed.description = (
+            f"**이적 시장이 종료되었으며, 각 팀의 비밀 작전실이 오픈되었습니다.**\n"
+            f"더 이상 `/팀가입`을 사용할 수 없습니다.\n\n"
+            f"**[처리 결과]**\n{result_text}"
+        )
+        embed.set_footer(text="참가자들은 본인 팀의 채널이 잘 보이는지 확인해 주세요!")
         
         await interaction.followup.send(embed=embed)
 
     except discord.Forbidden:
-        await interaction.followup.send("❌ 봇에게 권한이 없습니다! 서버 설정에서 봇의 역할(Role) 위치를 유저들보다 위로 올리고, '역할 관리' 권한을 주세요.")
+        await interaction.followup.send("❌ 봇에게 권한이 부족합니다! 서버 설정에서 봇의 역할을 최상단으로 올리고, '채널 관리' 및 '역할 관리' 권한을 주세요.")
     except Exception as e:
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
-
+        
 # ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용)
 # ==========================================
