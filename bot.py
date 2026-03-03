@@ -435,14 +435,16 @@ async def confirm_teams_slash(interaction: discord.Interaction):
 # ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용) - 6팀 조별 리그 버전
 # ==========================================
-@bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 조 추첨 및 대진표를 랜덤 생성합니다. (진영 완벽 밸런스)")
+@bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 조 추첨 및 대진표를 랜덤 생성합니다.")
 @app_commands.default_permissions(administrator=True)
 async def generate_bracket_slash(interaction: discord.Interaction):
-    # DB 작업이 있으므로 응답 대기 시간 확보
     await interaction.response.defer()
 
     @sync_to_async
     def create_matches():
+        from django.db import close_old_connections
+        close_old_connections()
+        
         from tournament.models import Team, Match
         import random
 
@@ -495,9 +497,9 @@ async def generate_bracket_slash(interaction: discord.Interaction):
         for blue_team, red_team in rounds:
             match = Match.objects.create(
                 match_number=match_number,
-                stage='GROUP',    # ✨ 추가된 필드: 이건 조별 리그 매치임!
-                team_a=blue_team, # Blue 진영
-                team_b=red_team,  # Red 진영
+                stage='GROUP',
+                team_a=blue_team,
+                team_b=red_team,
                 is_completed=False
             )
             created_matches.append({
@@ -548,7 +550,7 @@ async def generate_bracket_slash(interaction: discord.Interaction):
     embed.set_footer(text="* 결과는 DB에 즉시 저장되었으며, 웹사이트 조별 리그 탭에 동기화됩니다.")
     
     await interaction.followup.send(embed=embed)
-    
+
 # ==========================================
 # /경기알림 슬래시 명령어 (관리자 전용)
 # ==========================================
