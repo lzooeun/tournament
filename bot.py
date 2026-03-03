@@ -203,40 +203,67 @@ class ApprovalView(discord.ui.View):
 # ==========================================
 @bot.event
 async def on_member_join(member):
+    WELCOME_CHANNEL_ID = 1477547605276754025  # 웰컴 메시지를 띄울 채널 (예: #입장-인사 또는 #잡담)
+    NOTICE_CHANNEL_ID = 1477535707840118837   # #공지사항 채널 ID
+    RULES_CHANNEL_ID = 1477537413654908969    # #대회-룰 채널 ID
+    WEB_CHANNEL_ID = 1477537596598124566      # #웹사이트 채널 ID
+    INTRO_CHANNEL_ID = 1478475815007031296    # #자기소개 채널 ID
+
     @sync_to_async
     def get_player_riot_id(discord_id):
-        # 🚨 DB 연결 끊김 방지
         from django.db import close_old_connections
         close_old_connections()
         
         from tournament.models import Player
         try:
-            # DB에서 방금 들어온 유저의 디스코드 ID로 검색
             player = Player.objects.get(discord_user_id=str(discord_id))
             return player.riot_id
         except Player.DoesNotExist:
             return None
 
-    # 함수 실행해서 롤 닉네임 가져오기
     riot_id = await get_player_riot_id(member.id)
 
+    # 2. 닉네임 변경 시도
+    changed_nick = False
     if riot_id:
-        # 디스코드 닉네임 최대 길이는 32자이므로 안전하게 자르기
         new_nick = riot_id[:32]
-        
         try:
             await member.edit(nick=new_nick)
-            print(f"✅ [자동 닉네임 변경] {member.name} -> {new_nick}")
-            
-            # (선택) 특정 채널에 알림을 보내고 싶다면 아래 주석 해제 후 채널 ID 입력
-            # channel = bot.get_channel(여기에_알림_보낼_채널_ID)
-            # if channel:
-            #     await channel.send(f"👋 <@{member.id}>님의 별명이 `{new_nick}`(으)로 자동 변경되었습니다.")
-                
-        except discord.Forbidden:
-            print(f"❌ [권한 에러] 봇의 권한이 부족하여 {member.name}의 닉네임을 바꿀 수 없습니다.")
-        except discord.HTTPException as e:
-            print(f"❌ [API 에러] 닉네임 변경 실패: {e}")
+            changed_nick = True
+        except Exception as e:
+            print(f"❌ 닉네임 변경 실패: {e}")
+
+    # 3. 웰컴 메시지 전송
+    welcome_channel = bot.get_channel(WELCOME_CHANNEL_ID)
+    if welcome_channel:
+        embed = discord.Embed(
+            title="🎉 신규 참가자 입장!",
+            description=f"환영합니다, <@{member.id}>님! 2026 TÆKTUBE INVITATIONAL에 합류하셨습니다.",
+            color=0x6C85DE
+        )
+        
+        if changed_nick:
+            embed.description += f"\n*(시스템에 의해 별명이 `{new_nick}`으로 자동 변경되었습니다.)*"
+
+        embed.add_field(
+            name="📚 [ STEP 1 ] 필독 채널 숙지",
+            value=(
+                f"원활한 대회 진행을 위해 아래 세 채널을 반드시 정독해 주세요.\n"
+                f"👉 <#{NOTICE_CHANNEL_ID}> | <#{RULES_CHANNEL_ID}> | <#{WEB_CHANNEL_ID}>"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="🎤 [ STEP 2 ] 자기소개 작성",
+            value=(
+                f"다른 참가자들에게 본인을 어필해 보세요!\n"
+                f"👉 <#{INTRO_CHANNEL_ID}> 채널로 이동하여 `/자기소개` 명령어를 입력해 주세요."
+            ),
+            inline=False
+        )
+        
+        # 멘션과 함께 임베드 전송 (유저에게 알림이 가도록 content에 멘션 포함)
+        await welcome_channel.send(content=f"<@{member.id}>", embed=embed)
 
 # ==========================================
 # 팀 이름 자동완성 함수
@@ -553,6 +580,56 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
 
 # ==========================================
+# /자기소개 슬래시 명령어 (모든 유저 사용 가능)
+# ==========================================
+@bot.tree.command(name="자기소개", description="[참가자 전용] 지정된 채널에서 자기소개를 작성합니다.")
+@app_commands.describe(
+    riot_id="롤 닉네임 (예: Hide on bush#KR1)",
+    positions="주로 가는 라인 (복수 선택 가능, 예: 미드/원딜/서폿)",
+    current_tier="현재 솔랭 티어 (예: 플래티넘 3)",
+    highest_tier="역대 최고 티어 (예: 에메랄드 1)",
+    appeal="어필 한마디 (예: 국밥 탑라이너입니다. 잘 부탁드립니다!)"
+)
+async def self_introduction(
+    interaction: discord.Interaction, 
+    riot_id: str, 
+    positions: str, 
+    current_tier: str, 
+    highest_tier: str, 
+    appeal: str
+):
+    # 🚨 자기소개 채널 ID를 여기에 입력하세요! (다른 채널에서 쓰면 봇이 막음)
+    INTRO_CHANNEL_ID = 1478475815007031296  # 예: #자기소개 채널 ID
+    
+    if interaction.channel_id != INTRO_CHANNEL_ID:
+        await interaction.response.send_message(
+            f"❌ 이 명령어는 <#{INTRO_CHANNEL_ID}> 채널에서만 사용할 수 있습니다!", 
+            ephemeral=True
+        )
+        return
+
+    # 자기소개 임베드 생성
+    embed = discord.Embed(
+        title="✨ NEW CHALLENGER APPEARED!",
+        description=f"<@{interaction.user.id}>님의 자기소개입니다.",
+        color=0x6C85DE
+    )
+    
+    # 디스코드 프로필 사진을 썸네일로 사용
+    if interaction.user.display_avatar:
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        
+    embed.add_field(name="[롤 닉네임]", value=f"**{riot_id}**", inline=False)
+    embed.add_field(name="[선호 포지션]", value=f"`{positions}`", inline=False)
+    embed.add_field(name="[현재 티어]", value=current_tier, inline=True)
+    embed.add_field(name="[최고 티어]", value=highest_tier, inline=True)
+    embed.add_field(name="[어필 한마디]", value=f"> {appeal}", inline=False)
+    
+    embed.set_footer(text="2026 TÆKTUBE INVITATIONAL")
+
+    await interaction.response.send_message(embed=embed)
+
+# ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용) - 스케줄링 포함
 # ==========================================
 @bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 추첨 및 대진표를 생성합니다. (시간 자동 배정)")
@@ -777,14 +854,12 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
     app_commands.Choice(name="4. [가이드] 팀 가입 방법 (배너 포함)", value="guide_join"),
     app_commands.Choice(name="5. [가이드] 결과 제출 방법 (배너 포함)", value="guide_submit"),
     app_commands.Choice(name="6. 봇 사용법 공지", value="bot_guide"),
+    app_commands.Choice(name="7. [가이드] 자기소개 작성 방법", value="guide_intro"),
 ])
 @app_commands.default_permissions(administrator=True)
 async def send_official_notice(interaction: discord.Interaction, notice_type: str):
     
-    embed_color = 0x6C85DE # 네 시그니처 블루 컬러! (기존 0x111111에서 변경)
-    
-    # 🚨 여기에 네가 디스코드에 올린 배너 이미지 링크를 넣어야 해!
-    # (디스코드 아무 비공개 채널에 사진 올리고 -> 우클릭 -> 링크 복사)
+    embed_color = 0x6C85DE 
     TEAM_SIGNUP_IMG_URL = "https://i.imgur.com/jjUufqx.png"
     SUBMIT_RESULT_IMG_URL = "https://i.imgur.com/JB1zLCU.png"
 
@@ -952,6 +1027,35 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
         embed.add_field(
             name="[ 다전제 (Bo3 / Bo5) 제출 룰 ] 🚨 필수 숙지",
             value="- 조별 리그 및 데스매치는 1경기 종료 후 1회 제출합니다.\n- **세미파이널과 결승전은 '매 세트가 끝날 때마다' 결과를 제출하십시오.**\n- 시스템이 자동으로 스코어를 누적 계산하여 최종 승자를 판별합니다.",
+            inline=False
+        )
+
+    elif notice_type == "guide_intro":
+        embed = discord.Embed(
+            title="[ SYSTEM GUIDE: SELF-INTRODUCTION ]",
+            description="참가자들의 원활한 소통과 팀 빌딩을 위해 시스템에 자신을 등록해 주십시오.",
+            color=embed_color
+        )
+
+        embed.add_field(
+            name="[ 명령어 사용법 ]",
+            value="💬 채팅창에 `/자기소개`를 입력하고, 나타나는 5가지 필수 항목을 모두 채워 제출하세요.",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 입력 항목 안내 ]",
+            value=(
+                "- **riot_id:** 정확한 롤 닉네임 (예: Hide on bush#KR1)\n"
+                "- **positions:** 주 포지션 및 가능 포지션 (예: 미드/원딜 가능)\n"
+                "- **current_tier:** 현재 솔로 랭크 티어\n"
+                "- **highest_tier:** 본인 역대 최고 티어\n"
+                "- **appeal:** 팀원들에게 어필할 자유로운 한마디"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="[ 유의사항 ]",
+            value="- 이 데이터는 팀장들의 스카우트와 이적 시장(탕치기)의 중요한 지표가 됩니다.\n- 모든 참가자가 열람하는 공간이므로, 욕설이나 부적절한 언행은 삼가 주시기 바랍니다.",
             inline=False
         )
 
