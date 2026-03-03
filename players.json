@@ -349,7 +349,7 @@
   },
   {
     "model": "tournament.player",
-    "pk": 23,
+    "pk": 24,
     "fields": {
       "riot_id": "SPOON KING#LMJ", 
       "discord_username": "groovy8104", 

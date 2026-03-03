@@ -1,13 +1,18 @@
 from django.db import models
 
 class Team(models.Model):
-    # 팀명은 나중에 유저가 바꿀 수 있도록 넉넉하게 설정
+    GROUP_CHOICES = [
+        ('A', 'Group A'),
+        ('B', 'Group B'),
+    ]
     name = models.CharField(max_length=50, unique=True, verbose_name="팀명")
+    group = models.CharField(max_length=1, choices=GROUP_CHOICES, null=True, blank=True, verbose_name="소속 그룹")
     wins = models.IntegerField(default=0, verbose_name="승리")
     losses = models.IntegerField(default=0, verbose_name="패배")
 
     def __str__(self):
-        return f"{self.name} ({self.wins}W {self.losses}L)"
+        group_label = f"[{self.group}] " if self.group else ""
+        return f"{group_label}{self.name} ({self.wins}W {self.losses}L)"
 
 
 class Player(models.Model):
@@ -45,11 +50,8 @@ class Player(models.Model):
     
     @property
     def opgg_url(self):
-        """라이엇 ID(Name#Tag)를 OP.GG URL 포맷(Name-Tag)으로 변환"""
         if self.riot_id:
-            # '#' 기호를 URL에 맞는 '-' 기호로 변경
             formatted_id = self.riot_id.replace('#', '-')
-            # 북미 서버 기준 링크 (한국 서버면 'na'를 'kr'로 변경)
             return f"https://www.op.gg/summoners/na/{formatted_id}"
         return "#"
 
@@ -61,7 +63,15 @@ class Match(models.Model):
         ('COMPLETED', '종료됨'),
     ]
 
+    STAGE_CHOICES = [
+        ('GROUP', '조별 리그 (Group Stage)'),
+        ('DEATHMATCH', '데스매치 (Quarter Finals)'),
+        ('SEMI', '세미 파이널 (Semi Finals)'),
+        ('FINAL', '결승전 (Finals)'),
+    ]
+
     match_number = models.IntegerField(unique=True, verbose_name="경기 번호")
+    stage = models.CharField(max_length=20, choices=STAGE_CHOICES, default='GROUP', verbose_name="경기 스테이지")
     team_a = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='matches_as_a', verbose_name="팀 A")
     team_b = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='matches_as_b', verbose_name="팀 B")
     
@@ -72,4 +82,4 @@ class Match(models.Model):
     screenshot_url = models.URLField(max_length=500, blank=True, null=True)
 
     def __str__(self):
-        return f"Game {self.match_number}: {self.team_a.name} vs {self.team_b.name}"
+        return f"[{self.get_stage_display()}] Game {self.match_number}: {self.team_a.name} vs {self.team_b.name}"

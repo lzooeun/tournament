@@ -433,9 +433,9 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
 
 # ==========================================
-# /대진표생성 슬래시 명령어 (관리자 전용)
+# /대진표생성 슬래시 명령어 (관리자 전용) - 6팀 조별 리그 버전
 # ==========================================
-@bot.tree.command(name="대진표생성", description="[관리자 전용] 5팀 풀리그 대진표를 랜덤 생성합니다. (진영 밸런스 100% 보장)")
+@bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 조 추첨 및 대진표를 랜덤 생성합니다. (진영 완벽 밸런스)")
 @app_commands.default_permissions(administrator=True)
 async def generate_bracket_slash(interaction: discord.Interaction):
     # DB 작업이 있으므로 응답 대기 시간 확보
@@ -446,76 +446,109 @@ async def generate_bracket_slash(interaction: discord.Interaction):
         from tournament.models import Team, Match
         import random
 
-        # 1. 팀 개수 검증 (정확히 5팀이어야 작동)
+        # 1. 팀 개수 검증 (정확히 6팀이어야 작동)
         teams = list(Team.objects.all())
-        if len(teams) != 5:
-            return False, f"시스템 오류: 현재 등록된 팀이 {len(teams)}개입니다. 대진표는 정확히 5개 팀이 확정된 후 생성할 수 있습니다."
+        if len(teams) != 6:
+            return False, f"시스템 오류: 현재 등록된 팀이 {len(teams)}개입니다. 대진표는 정확히 6개 팀이 확정된 후 생성할 수 있습니다."
 
-        # 2. 기존 매치 존재 여부 확인 (중복 생성 및 덮어쓰기 방지)
+        # 2. 기존 매치 존재 여부 확인 (중복 생성 방지)
         if Match.objects.exists():
             return False, "시스템 오류: 이미 생성된 대진표 데이터가 존재합니다. 테스트 데이터를 삭제(DB 초기화)한 후 다시 시도하십시오."
 
-        # 3. 팀 랜덤 셔플 (참가자 1~5에 무작위 배정)
+        # 3. 팀 랜덤 셔플 및 조 편성 (Group A: 3팀 / Group B: 3팀)
         random.shuffle(teams)
-        p1, p2, p3, p4, p5 = teams
+        group_a = teams[:3]
+        group_b = teams[3:]
 
-        # 4. 밸런스 템플릿 로드 (앞이 Blue 진영, 뒤가 Red 진영)
-        # 수학적으로 모든 팀이 블루 2번, 레드 2번을 플레이하도록 설계된 뼈대
-        rounds = [
-            [(p4, p1), (p2, p3)], # 라운드 1 (p5 휴식)
-            [(p3, p5), (p1, p2)], # 라운드 2 (p4 휴식)
-            [(p2, p4), (p5, p1)], # 라운드 3 (p3 휴식)
-            [(p1, p3), (p4, p5)], # 라운드 4 (p2 휴식)
-            [(p5, p2), (p3, p4)]  # 라운드 5 (p1 휴식)
+        # 4. 각 팀의 소속 조(Group)를 DB에 저장
+        for t in group_a:
+            t.group = 'A'
+            t.save()
+        for t in group_b:
+            t.group = 'B'
+            t.save()
+
+        # 5. 진영 밸런스 완벽 보장 대진표 짜기 (각 조 3경기)
+        # 3팀이 풀리그를 하면 무조건 [1블루 1레드]가 되도록 꼬리물기로 구성
+        a_matches = [
+            (group_a[0], group_a[1]), # A1(B) vs A2(R)
+            (group_a[1], group_a[2]), # A2(B) vs A3(R)
+            (group_a[2], group_a[0]), # A3(B) vs A1(R)
+        ]
+        b_matches = [
+            (group_b[0], group_b[1]), # B1(B) vs B2(R)
+            (group_b[1], group_b[2]), # B2(B) vs B3(R)
+            (group_b[2], group_b[0]), # B3(B) vs B1(R)
         ]
 
-        # 5. 라운드 진행 순서마저 셔플 (누가 먼저 쉬고, 언제 4연전을 할지 무작위 배정)
-        random.shuffle(rounds)
+        # 6. 경기 관전의 재미를 위해 A조와 B조 경기를 교차(Interleave) 배치
+        rounds = [
+            a_matches[0], b_matches[0], # Round 1
+            a_matches[1], b_matches[1], # Round 2
+            a_matches[2], b_matches[2]  # Round 3
+        ]
 
-        # 6. DB에 10개 매치 데이터 일괄 저장
-        match_number = 1
+        # 7. DB에 총 6경기 데이터 일괄 저장 (새로 만든 stage 필드 적용)
         created_matches = []
+        match_number = 1
         
-        for current_round in rounds:
-            for blue_team, red_team in current_round:
-                match = Match.objects.create(
-                    match_number=match_number,
-                    team_a=blue_team, # 모델 구조상 team_a를 Blue로 취급
-                    team_b=red_team,  # 모델 구조상 team_b를 Red로 취급
-                    is_completed=False
-                )
-                created_matches.append((match_number, blue_team.name, red_team.name))
-                match_number += 1
+        for blue_team, red_team in rounds:
+            match = Match.objects.create(
+                match_number=match_number,
+                stage='GROUP',    # ✨ 추가된 필드: 이건 조별 리그 매치임!
+                team_a=blue_team, # Blue 진영
+                team_b=red_team,  # Red 진영
+                is_completed=False
+            )
+            created_matches.append({
+                'num': match_number,
+                'group': blue_team.group,
+                'blue': blue_team.name,
+                'red': red_team.name
+            })
+            match_number += 1
 
-        return True, created_matches
+        return True, (group_a, group_b, created_matches)
 
+    # 함수 실행
     success, result = await create_matches()
 
-    # 에러 발생 시 (팀 개수 부족 or 이미 대진표 있음)
+    # 에러 발생 시
     if not success:
         await interaction.followup.send(f"[ ERROR ]\n{result}")
         return
 
-    # 7. 성공 시 디스코드 시스템 보고용 임베드 출력
+    # 8. 성공 시 디스코드 시스템 보고용 임베드 출력
+    group_a, group_b, match_list = result
+    
     embed = discord.Embed(
-        title="[ SYSTEM: BRACKET GENERATED ]",
-        description="5팀 풀리그 대진표가 무작위 추첨 및 진영 밸런스 보장 알고리즘을 통해 성공적으로 생성되었습니다.\n(왼쪽: BLUE 진영 / 오른쪽: RED 진영)",
+        title="[ SYSTEM: GROUP STAGE DRAW & BRACKET ]",
+        description="6팀 조 추첨 및 조별 리그 6경기 생성이 완료되었습니다.\n모든 팀은 공평하게 **블루 진영 1회, 레드 진영 1회**를 플레이합니다.",
         color=0x111111
     )
     
-    # 2경기(1라운드)씩 묶어서 출력
-    for i in range(0, 10, 2):
-        round_num = (i // 2) + 1
-        m1_num, m1_b, m1_r = result[i]
-        m2_num, m2_b, m2_r = result[i+1]
-        
-        val = f"**Game {m1_num:02d}** | {m1_b} (B) vs {m1_r} (R)\n**Game {m2_num:02d}** | {m2_b} (B) vs {m2_r} (R)"
-        embed.add_field(name=f"[ ROUND {round_num} ]", value=val, inline=False)
+    # 조 추첨 결과 표시
+    a_names = " / ".join([t.name for t in group_a])
+    b_names = " / ".join([t.name for t in group_b])
+    embed.add_field(name="[ GROUP A ]", value=f"**{a_names}**", inline=False)
+    embed.add_field(name="[ GROUP B ]", value=f"**{b_names}**", inline=False)
+    embed.add_field(name="+--------------------------------------+", value="\u200b", inline=False) # 디바이더
 
-    embed.set_footer(text="* 시스템 로직에 의해 웹사이트 Match Hub에 즉시 동기화되었습니다.")
+    # 2경기(A조 1경기, B조 1경기)씩 묶어서 출력
+    for i in range(0, 6, 2):
+        m1 = match_list[i]
+        m2 = match_list[i+1]
+        
+        val = (
+            f"**Game {m1['num']:02d}** [ Group {m1['group']} ] | {m1['blue']} (B) vs {m1['red']} (R)\n"
+            f"**Game {m2['num']:02d}** [ Group {m2['group']} ] | {m2['blue']} (B) vs {m2['red']} (R)"
+        )
+        embed.add_field(name=f"[ ROUND {(i//2)+1} ]", value=val, inline=False)
+
+    embed.set_footer(text="* 결과는 DB에 즉시 저장되었으며, 웹사이트 조별 리그 탭에 동기화됩니다.")
     
     await interaction.followup.send(embed=embed)
-
+    
 # ==========================================
 # /경기알림 슬래시 명령어 (관리자 전용)
 # ==========================================
