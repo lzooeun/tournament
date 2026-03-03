@@ -79,6 +79,8 @@ class Match(models.Model):
     winner = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True, related_name='won_matches', verbose_name="승리 팀")
     game_duration = models.CharField(max_length=10, null=True, blank=True, verbose_name="게임 소요 시간 (MM:SS)")
     scheduled_time = models.CharField(max_length=20, null=True, blank=True, verbose_name="예정 시간")
+    team_a_score = models.IntegerField(default=0, verbose_name="팀 A 스코어")
+    team_b_score = models.IntegerField(default=0, verbose_name="팀 B 스코어")
     is_completed = models.BooleanField(default=False)
     screenshot_url = models.URLField(max_length=500, blank=True, null=True)
 

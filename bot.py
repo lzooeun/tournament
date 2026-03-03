@@ -62,87 +62,95 @@ class ApprovalView(discord.ui.View):
     @discord.ui.button(label="승인 (Approve)", style=discord.ButtonStyle.success)
     async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         @sync_to_async
+        @sync_to_async
         def update_match():
             from tournament.models import Match, Team
-            # ✨ 백엔드 웹에서 쓰던 랭킹 계산 함수를 봇으로 몰래 불러와서 씀!
             from tournament.views import get_standings 
 
             match = Match.objects.get(id=self.match_id)
             winner = Team.objects.filter(name=self.winner_team).first()
             
-            # 경기 종료 후 디스코드 채널에 띄워줄 자동 중계 메시지 보관함
             system_messages = [] 
 
             if winner:
-                match.winner = winner
-                # 패배팀 찾기
-                loser = match.team_b if match.team_a == winner else match.team_a
-                
-                # 승패 카운트 증가
-                winner.wins += 1
-                winner.save()
-                loser.losses += 1
-                loser.save()
-                
-                match.status = 'COMPLETED'
-                match.is_completed = True
+                # 1. 방금 이긴 팀의 세트 스코어 1점 추가!
+                if winner == match.team_a:
+                    match.team_a_score += 1
+                else:
+                    match.team_b_score += 1
+
+                # 2. 다전제 룰에 따라 '시리즈가 최종 종료' 되었는지 확인
+                is_series_finished = False
+                if match.stage in ['GROUP', 'DEATHMATCH']:
+                    is_series_finished = True # 단판승부(Bo1)는 1승만 하면 바로 끝!
+                elif match.stage == 'SEMI':
+                    if match.team_a_score >= 2 or match.team_b_score >= 2: # Bo3 (2선승제)
+                        is_series_finished = True
+                elif match.stage == 'FINAL':
+                    if match.team_a_score >= 3 or match.team_b_score >= 3: # Bo5 (3선승제)
+                        is_series_finished = True
+
+                # 방금 끝난 세트의 스크린샷과 시간 업데이트
                 match.screenshot_url = self.image_url
                 match.game_duration = self.duration
-                match.save()
 
-                # ==========================================
-                # 🎯 [ AUTO-PROGRESSION ] 토너먼트 자동 진출 시스템
-                # ==========================================
-                
-                # 1. 방금 끝난 게 '조별 리그' 였다면?
-                if match.stage == 'GROUP':
-                    # 아직 안 끝난 조별 리그가 있는지 확인
-                    uncompleted_groups = Match.objects.filter(stage='GROUP', is_completed=False).count()
+                # 3. [ 시리즈 완전 종료 시 ] -> 최종 승자 확정 및 다음 라운드 진출 로직
+                if is_series_finished:
+                    match.winner = winner
+                    match.status = 'COMPLETED'
+                    match.is_completed = True
                     
-                    if uncompleted_groups == 0: # 조별 리그가 모두 끝났다면!
-                        # 중복 생성 방지용 (7번 매치가 없을 때만 실행)
-                        if not Match.objects.filter(match_number=7).exists():
-                            # A조 B조 최종 순위 계산
-                            std_a = get_standings('A')
-                            std_b = get_standings('B')
+                    # 최종 승패 카운트 적용
+                    winner.wins += 1
+                    winner.save()
+                    loser = match.team_b if match.team_a == winner else match.team_a
+                    loser.losses += 1
+                    loser.save()
+                    match.save()
 
-                            # 1~3위 팀 데이터 추출
-                            a1, a2, a3 = std_a[0]['team'], std_a[1]['team'], std_a[2]['team']
-                            b1, b2, b3 = std_b[0]['team'], std_b[1]['team'], std_b[2]['team']
+                    # ==========================================
+                    # 🎯 [ AUTO-PROGRESSION ] 토너먼트 자동 진출
+                    # ==========================================
+                    if match.stage == 'GROUP':
+                        uncompleted_groups = Match.objects.filter(stage='GROUP', is_completed=False).count()
+                        if uncompleted_groups == 0:
+                            if not Match.objects.filter(match_number=7).exists():
+                                std_a = get_standings('A')
+                                std_b = get_standings('B')
+                                a1, a2, a3 = std_a[0]['team'], std_a[1]['team'], std_a[2]['team']
+                                b1, b2, b3 = std_b[0]['team'], std_b[1]['team'], std_b[2]['team']
 
-                            # 🔥 데스매치 (Quarter Finals) 2경기 자동 생성
-                            Match.objects.create(match_number=7, stage='DEATHMATCH', team_a=a2, team_b=b3, is_completed=False)
-                            Match.objects.create(match_number=8, stage='DEATHMATCH', team_a=b2, team_b=a3, is_completed=False)
+                                Match.objects.create(match_number=7, stage='DEATHMATCH', team_a=a2, team_b=b3, is_completed=False)
+                                Match.objects.create(match_number=8, stage='DEATHMATCH', team_a=b2, team_b=a3, is_completed=False)
+                                system_messages.append("🔥 **[ GROUP STAGE 종료 ]** 데스매치 대진이 자동 생성되었습니다!")
+                                system_messages.append(f"⚔️ **[ Deathmatch 1 ]** {a2.name} (A조 2위) vs {b3.name} (B조 3위)")
+                                system_messages.append(f"⚔️ **[ Deathmatch 2 ]** {b2.name} (B조 2위) vs {a3.name} (A조 3위)")
 
-                            system_messages.append("🔥 **[ GROUP STAGE 종료 ]** 최종 순위에 따라 데스매치 대진이 자동 생성되었습니다!")
-                            system_messages.append(f"⚔️ **[ Deathmatch 1 ]** {a2.name} (A조 2위) vs {b3.name} (B조 3위)")
-                            system_messages.append(f"⚔️ **[ Deathmatch 2 ]** {b2.name} (B조 2위) vs {a3.name} (A조 3위)")
-                            system_messages.append(f"⭐ *{a1.name}(A조 1위)와 {b1.name}(B조 1위)는 세미파이널 직행 대기 중입니다.*")
+                    elif match.stage == 'DEATHMATCH':
+                        if match.match_number == 7:
+                            b1 = get_standings('B')[0]['team']
+                            if not Match.objects.filter(match_number=9).exists():
+                                Match.objects.create(match_number=9, stage='SEMI', team_a=b1, team_b=winner, is_completed=False)
+                                system_messages.append(f"🌟 **[ SEMI-FINAL 1 대진 확정 ]** {b1.name} (B조 1위) vs {winner.name} (DM1 승자)")
+                        elif match.match_number == 8:
+                            a1 = get_standings('A')[0]['team']
+                            if not Match.objects.filter(match_number=10).exists():
+                                Match.objects.create(match_number=10, stage='SEMI', team_a=a1, team_b=winner, is_completed=False)
+                                system_messages.append(f"🌟 **[ SEMI-FINAL 2 대진 확정 ]** {a1.name} (A조 1위) vs {winner.name} (DM2 승자)")
 
-                # 2. 방금 끝난 게 '데스매치' 였다면? -> 이긴 팀을 세미파이널로!
-                elif match.stage == 'DEATHMATCH':
-                    if match.match_number == 7: # 데스매치 1경기 (A2 vs B3)
-                        b1 = get_standings('B')[0]['team'] # 기다리고 있던 B조 1위 호출
-                        if not Match.objects.filter(match_number=9).exists():
-                            Match.objects.create(match_number=9, stage='SEMI', team_a=b1, team_b=winner, is_completed=False)
-                            system_messages.append(f"🌟 **[ SEMI-FINAL 1 대진 확정 ]** {b1.name} (B조 1위) vs {winner.name} (DM1 승자)")
-                            
-                    elif match.match_number == 8: # 데스매치 2경기 (B2 vs A3)
-                        a1 = get_standings('A')[0]['team'] # 기다리고 있던 A조 1위 호출
-                        if not Match.objects.filter(match_number=10).exists():
-                            Match.objects.create(match_number=10, stage='SEMI', team_a=a1, team_b=winner, is_completed=False)
-                            system_messages.append(f"🌟 **[ SEMI-FINAL 2 대진 확정 ]** {a1.name} (A조 1위) vs {winner.name} (DM2 승자)")
+                    elif match.stage == 'SEMI':
+                        uncompleted_semis = Match.objects.filter(stage='SEMI', is_completed=False).count()
+                        if uncompleted_semis == 0:
+                            if not Match.objects.filter(match_number=11).exists():
+                                sf1_match = Match.objects.get(match_number=9)
+                                sf2_match = Match.objects.get(match_number=10)
+                                Match.objects.create(match_number=11, stage='FINAL', team_a=sf1_match.winner, team_b=sf2_match.winner, is_completed=False)
+                                system_messages.append("🏆 **[ GRAND FINAL 대진 확정 ]** 결승전 매치업이 생성되었습니다!")
 
-                # 3. 방금 끝난 게 '세미파이널' 이었다면? -> 대망의 결승전 생성!
-                elif match.stage == 'SEMI':
-                    uncompleted_semis = Match.objects.filter(stage='SEMI', is_completed=False).count()
-                    
-                    if uncompleted_semis == 0: # 4강전이 모두 끝났다면
-                        if not Match.objects.filter(match_number=11).exists():
-                            sf1_match = Match.objects.get(match_number=9)
-                            sf2_match = Match.objects.get(match_number=10)
-                            Match.objects.create(match_number=11, stage='FINAL', team_a=sf1_match.winner, team_b=sf2_match.winner, is_completed=False)
-                            system_messages.append("🏆 **[ GRAND FINAL 대진 확정 ]** 대망의 결승전 매치업이 웹사이트에 업데이트되었습니다!")
+                # 4. [ 세트 종료 (아직 시리즈 진행 중) ] -> 스코어만 저장
+                else:
+                    match.save() # 스코어만 올리고 is_completed는 여전히 False 상태 유지!
+                    system_messages.append(f"🔄 **[ SET SCORE UPDATED ]** 현재 스코어: **{match.team_a.name} ({match.team_a_score})** vs **({match.team_b_score}) {match.team_b.name}**")
 
             return winner.name if winner else "알 수 없음", system_messages
             

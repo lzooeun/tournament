@@ -155,11 +155,16 @@
                             {% endif %}>
                             <div class="match-time">
                                 {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                                {% if match.is_completed and match.screenshot_url %} 📸{% endif %}
                             </div>
                             <div class="match-teams">
-                                <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
+                                <span class="{% if match.winner == match.team_a %}winner{% endif %}">
+                                    {{ match.team_a.name }} {% if match.winner == match.team_a %}(W){% elif match.is_completed %}(L){% endif %}
+                                </span>
                                 <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
-                                <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
+                                <span class="{% if match.winner == match.team_b %}winner{% endif %}">
+                                    {{ match.team_b.name }} {% if match.winner == match.team_b %}(W){% elif match.is_completed %}(L){% endif %}
+                                </span>
                             </div>
                             <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo1{% endif %}</div>
                         </div>
@@ -184,15 +189,18 @@
                 {% for match in matches %}
                     {% if match.stage == 'SEMI' %}
                         <div class="match-card {% if match.is_completed %}completed{% endif %}"
-                            {% if match.is_completed and match.screenshot_url %}
-                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
+                            {% if match.screenshot_url %}
+                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;" title="최근 세트 결과 보기"
                             {% endif %}>
                             <div class="match-time">
                                 {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                                {% if match.screenshot_url %} 📸{% endif %}
                             </div>
-                            <div class="match-teams">
+                            <div class="match-teams" style="font-size: 1.15rem;">
                                 <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
-                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
+                                <strong style="color: var(--primary-color); margin-left: 10px;">{{ match.team_a_score }}</strong>
+                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 8px;">:</span>
+                                <strong style="color: var(--primary-color); margin-right: 10px;">{{ match.team_b_score }}</strong>
                                 <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
                             </div>
                             <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo3{% endif %}</div>
@@ -218,15 +226,18 @@
                 {% for match in matches %}
                     {% if match.stage == 'FINAL' %}
                         <div class="match-card {% if match.is_completed %}completed{% endif %}" style="border-color: var(--text-title);"
-                            {% if match.is_completed and match.screenshot_url %}
-                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
+                            {% if match.screenshot_url %}
+                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;" title="최근 세트 결과 보기"
                             {% endif %}>
                             <div class="match-time">
                                 {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                                {% if match.screenshot_url %} 📸{% endif %}
                             </div>
-                            <div class="match-teams">
+                            <div class="match-teams" style="font-size: 1.2rem;">
                                 <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
-                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
+                                <strong style="color: var(--primary-color); margin-left: 10px;">{{ match.team_a_score }}</strong>
+                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 8px;">:</span>
+                                <strong style="color: var(--primary-color); margin-right: 10px;">{{ match.team_b_score }}</strong>
                                 <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
                             </div>
                             <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo5{% endif %}</div>
@@ -346,7 +357,7 @@
             <div class="player-grid">
                 {% for tier_num, players in players_by_tier.items %}
                     {% for player in players %}
-                        {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' %}
+                        {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                             <div class="card-title">{{ player.riot_id }}
                                 {% if player.main_position == 'TOP' %}<span class="pos-badge main-pos">Main</span>
@@ -366,7 +377,7 @@
             <div class="player-grid">
                 {% for tier_num, players in players_by_tier.items %}
                     {% for player in players %}
-                        {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' %}
+                        {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                             <div class="card-title">{{ player.riot_id }}
                                 {% if player.main_position == 'JGL' %}<span class="pos-badge main-pos">Main</span>
@@ -386,7 +397,7 @@
             <div class="player-grid">
                 {% for tier_num, players in players_by_tier.items %}
                     {% for player in players %}
-                        {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' %}
+                        {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                             <div class="card-title">{{ player.riot_id }}
                                 {% if player.main_position == 'MID' %}<span class="pos-badge main-pos">Main</span>
@@ -406,7 +417,7 @@
             <div class="player-grid">
                 {% for tier_num, players in players_by_tier.items %}
                     {% for player in players %}
-                        {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' %}
+                        {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                             <div class="card-title">{{ player.riot_id }}
                                 {% if player.main_position == 'ADC' %}<span class="pos-badge main-pos">Main</span>
@@ -426,7 +437,7 @@
             <div class="player-grid">
                 {% for tier_num, players in players_by_tier.items %}
                     {% for player in players %}
-                        {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' %}
+                        {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                             <div class="card-title">{{ player.riot_id }}
                                 {% if player.main_position == 'SUP' %}<span class="pos-badge main-pos">Main</span>
