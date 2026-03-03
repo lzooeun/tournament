@@ -203,6 +203,11 @@ h3 { font-size: 16px; margin-bottom: 10px; }
     border-color: var(--primary-color);
 }
 
+.team-group-b .team-card:hover {
+    box-shadow: 4px 4px 0px #e74c3c;
+    border-color: #e74c3c;
+}
+
 /* Player List */
 .tier-row { margin-bottom: 20px; }
 .tier-label { font-family: 'Space Grotesk', sans-serif; font-weight: 600; margin-bottom: 8px; }
@@ -247,9 +252,12 @@ h3 { font-size: 16px; margin-bottom: 10px; }
 /* Team List */
 .team-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr); 
+    grid-template-columns: repeat(3, 1fr); /* 🎯 5칸에서 3칸으로 변경! */
     gap: 20px;
     margin-bottom: 40px;
+    max-width: 900px; /* 너무 넓어지지 않게 제어 */
+    margin-left: auto; /* 🎯 통째로 가운데 정렬 */
+    margin-right: auto;
 }
 .team-card {
     border-radius: 8px; 
@@ -499,6 +507,47 @@ footer {
     text-align: center;
     font-size: 12px;
     color: var(--text-muted);
+}
+
+/* ==========================================
+   [ NEW ] Group Stage & Knockout Styles
+   ========================================== */
+.group-title {
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--primary-color);
+    margin-top: 30px;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+/* B조는 붉은색 테마 적용을 위한 유틸 클래스 */
+.team-grid:nth-of-type(2) .group-title { color: #e74c3c; }
+
+/* 매치 카드 내 그룹 뱃지 */
+.group-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+.group-A { background-color: var(--primary-color); color: #fff; }
+.group-B { background-color: #e74c3c; color: #fff; }
+
+.ranking-title {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+/* 랭킹 컨테이너 상하 여백 조정 */
+.rankings-container {
+    display: flex;
+    flex-direction: column;
 }
 
 /* ==========================================

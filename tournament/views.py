@@ -3,10 +3,11 @@ from collections import defaultdict
 from django.db.models import Q
 from .models import Player, Team, Match
 
-def get_standings():
+def get_standings(group_name):
     # 1. 모든 팀의 기본 통계 구조(Dictionary) 생성
     stats = {}
-    for team in Team.objects.all():
+    teams_in_group = Team.objects.filter(group=group_name)
+    for team in teams_in_group:
         stats[team.id] = {
             'team': team,
             'wins': 0,
@@ -17,21 +18,18 @@ def get_standings():
             'h2h_wins': [] 
         }
 
-    # 2. 종료된 매치 데이터를 바탕으로 승패 및 시간 계산
-    # 🚨 주의: 네 기존 코드에 있던 status='COMPLETED' 대신, 
-    # 봇 코드와 통일하기 위해 is_completed=True 로 변경했어! (모델 필드 확인 필수)
-    completed_matches = Match.objects.filter(is_completed=True)
+    # 2. '조별 리그(GROUP)' 단계이면서 종료된 경기만 필터링
+    completed_group_matches = Match.objects.filter(is_completed=True, stage='GROUP')
     
-    for match in completed_matches:
-        if match.winner:
+    for match in completed_group_matches:
+        # 이 경기가 현재 계산하려는 조의 경기인지 확인 (팀 A의 소속 조를 확인)
+        if match.team_a.group == group_name and match.winner:
             loser = match.team_b if match.team_a == match.winner else match.team_a
             
-            # 승패 기록 및 승자승(H2H) 데이터 추가
             stats[match.winner.id]['wins'] += 1
             stats[loser.id]['losses'] += 1
             stats[match.winner.id]['h2h_wins'].append(loser.id)
 
-            # 승리 시간 초(Seconds) 단위로 변환
             if match.game_duration:
                 try:
                     minutes, seconds = map(int, match.game_duration.split(':'))
@@ -96,31 +94,35 @@ def home(request):
     db_teams = list(Team.objects.prefetch_related('players').all())
     teams_data = []
     
-    for i in range(5):
+    for i in range(6):
         if i < len(db_teams):
             team = db_teams[i]
             players = list(team.players.all())
             padded_players = players + [None] * (5 - len(players))
             teams_data.append({
                 'name': team.name, 
+                'group': team.group,
                 'players': padded_players
             })
         else:
             teams_data.append({
                 'name': f'Team {chr(65+i)} (미정)', 
+                'group': None,
                 'players': [None] * 5
             })
 
     # 3. Match Hub 좌측 경기 목록용 데이터
     matches = Match.objects.all().order_by('match_number')
     
-    # 4. Match Hub 우측 랭킹 테이블용 데이터 (여기서 호출!)
-    current_standings = get_standings()
+    # 4. Match Hub 우측 랭킹 테이블용 데이터
+    group_a_standings = get_standings('A')
+    group_b_standings = get_standings('B')
 
     # 5. 모든 데이터를 컨텍스트에 담아서 HTML로 발사
     return render(request, 'tournament/home.html', {
         'players_by_tier': players_by_tier,
         'teams': teams_data,
         'matches': matches,
-        'standings': current_standings, # 🎯 HTML의 {% for row in standings %}와 연결됨!
+        'group_a_standings': group_a_standings,
+        'group_b_standings': group_b_standings,
     })

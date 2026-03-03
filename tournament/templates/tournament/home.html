@@ -7,7 +7,7 @@
     <meta property="og:title" content="2026 TÆKTUBE INVITATIONAL">
     <meta property="og:description" content="Montreal Edition S1 | 전체 대진표, 참가자 목록, 실시간 랭킹 확인하기">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://taektube-montreal.onrender.com/"> <meta property="og:image" content="https://media.discordapp.net/attachments/402182890227761156/1477507198551593052/taektube_logo.png?ex=69a5034e&is=69a3b1ce&hm=f7d8cad2f614e95dcf3d8911c299f00df4d548ccce22ce8b36218b2e87492dd1&=&format=webp&quality=lossless&width=1382&height=1382"> 
+    <meta property="og:url" content="https://taektube-montreal.onrender.com/"> 
     <meta name="theme-color" content="#6C85DE">
     <title>2026 TÆKTUBE INVITATIONAL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,13 +15,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="{% static 'tournament/css/style.css' %}">
-    <link rel="icon" type="image/png" href="https://media.discordapp.net/attachments/402182890227761156/1477507198551593052/taektube_logo.png?ex=69a5034e&is=69a3b1ce&hm=f7d8cad2f614e95dcf3d8911c299f00df4d548ccce22ce8b36218b2e87492dd1&=&format=webp&quality=lossless&width=1382&height=1382">
 </head>
+<body>
 <nav class="navbar">
     <div class="nav-container">
         <div class="nav-logo">
             <a href="/" class="nav-logo">
-                <img src="https://media.discordapp.net/attachments/402182890227761156/1477507198849650788/taektube_logo_trans.png?ex=69a5034e&is=69a3b1ce&hm=830c8d89d828728c05f30d86a06080ea5c5062c5df4946c4d201bdd0bfe2e661&=&format=webp&quality=lossless&width=644&height=840" alt="TÆKTUBE Logo"class="logo-img">
                 <span>TÆKTUBE</span> 
             </a>
         </div>
@@ -34,196 +33,21 @@
         </ul>
     </div>
 </nav>
+
 <div class="container">
     <h1>2026 TÆKTUBE INVITATIONAL</h1>
-    <div class="subtitle">Montreal Edition <span class="badge">S1</span>
-        <div id="view-position" style="display: none;">
-            
-            <div class="position-row">
-                <div class="position-label">TOP</div>
-                <div class="player-grid">
-                    {% for tier_num, players in players_by_tier.items %}
-                        {% for player in players %}
-                            {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
-                            
-                            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                                <div class="card-title">
-                                    {{ player.riot_id }}
-                                    {% if player.main_position == 'TOP' %}
-                                        <span class="pos-badge main-pos">Main</span>
-                                    {% elif player.sub_position == 'TOP' %}
-                                        <span class="pos-badge sub-pos">Sub</span>
-                                    {% else %}
-                                        <span class="pos-badge fill-pos">Fill</span> 
-                                    {% endif %}
-                                </div>
-                                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                                
-                                <div class="tooltip-content">
-                                    <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
-                                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                    {% if player.note %}
-                                    <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="position-row">
-                <div class="position-label">JGL</div>
-                <div class="player-grid">
-                    {% for tier_num, players in players_by_tier.items %}
-                        {% for player in players %}
-                            {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
-                            
-                            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                                <div class="card-title">
-                                    {{ player.riot_id }}
-                                    {% if player.main_position == 'JGL' %}
-                                        <span class="pos-badge main-pos">Main</span>
-                                    {% elif player.sub_position == 'JGL' %}
-                                        <span class="pos-badge sub-pos">Sub</span>
-                                    {% else %}
-                                        <span class="pos-badge fill-pos">Fill</span> 
-                                    {% endif %}
-                                </div>
-                                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                                
-                                <div class="tooltip-content">
-                                    <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
-                                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                    {% if player.note %}
-                                    <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="position-row">
-                <div class="position-label">MID</div>
-                <div class="player-grid">
-                    {% for tier_num, players in players_by_tier.items %}
-                        {% for player in players %}
-                            {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
-                            
-                            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                                <div class="card-title">
-                                    {{ player.riot_id }}
-                                    {% if player.main_position == 'MID' %}
-                                        <span class="pos-badge main-pos">Main</span>
-                                    {% elif player.sub_position == 'MID' %}
-                                        <span class="pos-badge sub-pos">Sub</span>
-                                    {% else %}
-                                        <span class="pos-badge fill-pos">Fill</span> 
-                                    {% endif %}
-                                </div>
-                                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                                
-                                <div class="tooltip-content">
-                                    <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
-                                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                    {% if player.note %}
-                                    <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="position-row">
-                <div class="position-label">ADC</div>
-                <div class="player-grid">
-                    {% for tier_num, players in players_by_tier.items %}
-                        {% for player in players %}
-                            {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
-                            
-                            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                                <div class="card-title">
-                                    {{ player.riot_id }}
-                                    {% if player.main_position == 'ADC' %}
-                                        <span class="pos-badge main-pos">Main</span>
-                                    {% elif player.sub_position == 'ADC' %}
-                                        <span class="pos-badge sub-pos">Sub</span>
-                                    {% else %}
-                                        <span class="pos-badge fill-pos">Fill</span> 
-                                    {% endif %}
-                                </div>
-                                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                                
-                                <div class="tooltip-content">
-                                    <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
-                                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                    {% if player.note %}
-                                    <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-            <div class="position-row">
-                <div class="position-label">SUP</div>
-                <div class="player-grid">
-                    {% for tier_num, players in players_by_tier.items %}
-                        {% for player in players %}
-                            {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
-                            
-                            <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                                <div class="card-title">
-                                    {{ player.riot_id }}
-                                    {% if player.main_position == 'SUP' %}
-                                        <span class="pos-badge main-pos">Main</span>
-                                    {% elif player.sub_position == 'SUP' %}
-                                        <span class="pos-badge sub-pos">Sub</span>
-                                    {% else %}
-                                        <span class="pos-badge fill-pos">Fill</span> 
-                                    {% endif %}
-                                </div>
-                                <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                                
-                                <div class="tooltip-content">
-                                    <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
-                                    <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                    <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                    {% if player.note %}
-                                    <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
+    <div class="subtitle">Montreal Edition <span class="badge">S1</span></div>
 
-        <h2 id="team-list">Team List</h2>
-        <div class="team-grid">
-            {% for team in teams %}
+    <h2 id="team-list">Team List</h2>
+    
+    <h3 class="group-title">[ GROUP A ]</h3>
+    <div class="team-grid">
+        {% for team in teams %}
+            {% if team.group == 'A' or forloop.counter <= 3 and not team.group %}
             <div class="team-card">
                 <div class="team-card-header">
                     <div class="team-name">{{ team.name }}</div>
                 </div>
-                
                 <div class="team-card-body">
                     {% for player in team.players %}
                         {% if player %}
@@ -236,50 +60,81 @@
                     {% endfor %}
                 </div>
             </div>
-            {% endfor %}
-        </div>
+            {% endif %}
+        {% endfor %}
+    </div>
 
-        <h2 id="match-hub">Match Hub</h2>
-        <div class="match-hub">
-            <div class="stage-list">
-                <div class="stage-item active" onclick="switchTab('round-robin', this)">
-                    <div class="stage-title">Round Robin</div>
-                    <div class="stage-date">Mar 28th</div>
+    <h3 class="group-title">[ GROUP B ]</h3>
+    <div class="team-grid team-group-b">
+        {% for team in teams %}
+            {% if team.group == 'B' or forloop.counter > 3 and not team.group %}
+            <div class="team-card" style="border-color: #e74c3c;"> <div class="team-card-header" style="background-color: #e74c3c;">
+                    <div class="team-name">{{ team.name }}</div>
                 </div>
-                <div class="stage-item" onclick="switchTab('semi-finals', this)" style="border-bottom-color: var(--border-light);">
-                    <div class="stage-title">Semi Finals</div>
-                    <div class="stage-date">Mar 29th</div>
-                </div>
-                <div class="stage-item" onclick="switchTab('finals', this)" style="border-bottom-color: var(--border-light);">
-                    <div class="stage-title">Finals</div>
-                    <div class="stage-date">TBD</div>
+                <div class="team-card-body">
+                    {% for player in team.players %}
+                        {% if player %}
+                            <div class="team-member active-player" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                                {{ player.riot_id }}
+                            </div>
+                        {% else %}
+                            <div class="team-member empty-slot">공석</div>
+                        {% endif %}
+                    {% endfor %}
                 </div>
             </div>
+            {% endif %}
+        {% endfor %}
+    </div>
 
-            <div>
-                <div id="round-robin" class="match-stage active">
-                    {% for match in matches %}
-                    <div class="match-card {% if match.status == 'COMPLETED' %}completed{% endif %}"
+    <h2 id="match-hub">Match Hub</h2>
+    <div class="match-hub">
+        <div class="stage-list">
+            <div class="stage-item active" onclick="switchTab('group-stage', this)">
+                <div class="stage-title">Group Stage</div>
+                <div class="stage-date">Mar 28th</div>
+            </div>
+            <div class="stage-item" onclick="switchTab('quarter-finals', this)">
+                <div class="stage-title">Quarter Finals</div>
+                <div class="stage-date">Mar 29th (Deathmatch)</div>
+            </div>
+            <div class="stage-item" onclick="switchTab('semi-finals', this)">
+                <div class="stage-title">Semi Finals</div>
+                <div class="stage-date">Mar 29th</div>
+            </div>
+            <div class="stage-item" onclick="switchTab('finals', this)">
+                <div class="stage-title">Finals</div>
+                <div class="stage-date">TBD</div>
+            </div>
+        </div>
+
+        <div>
+            <div id="group-stage" class="match-stage active">
+                {% for match in matches %}
+                    {% if match.stage == 'GROUP' %}
+                    <div class="match-card {% if match.is_completed %}completed{% endif %}"
                         {% if match.is_completed and match.screenshot_url %}
-                        onclick="window.open('{{ match.screenshot_url }}', '_blank')" 
-                        style="cursor: pointer;"
-                        title="클릭하여 결과 스크린샷 보기"
+                        onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
                         {% endif %}>
                         
                         <div class="match-time">
-                            Game {{ match.match_number }}
-                            {% if match.is_completed and match.screenshot_url %}
-                            <span style="font-size: 0.8em; margin-left: 4px;" opacity="0.8">📸</span>
-                            {% endif %}
+                            {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                            {% if match.is_completed and match.screenshot_url %} 📸{% endif %}
                         </div>
                         
                         <div class="match-teams">
+                            <span class="group-badge group-{{ match.team_a.group }}">Group {{ match.team_a.group|default:"-" }}</span>
+                            
                             <span class="{% if match.winner == match.team_a %}winner{% endif %}">
-                                {{ match.team_a.name }} {% if match.winner == match.team_a %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
+                                {{ match.team_a.name }} 
+                                {% if match.winner == match.team_a %}(W){% elif match.is_completed %}(L){% endif %}
                             </span> 
-                            / 
+                            
+                            <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> 
+                            
                             <span class="{% if match.winner == match.team_b %}winner{% endif %}">
-                                {{ match.team_b.name }} {% if match.winner == match.team_b %}(W){% elif match.status == 'COMPLETED' %}(L){% endif %}
+                                {{ match.team_b.name }} 
+                                {% if match.winner == match.team_b %}(W){% elif match.is_completed %}(L){% endif %}
                             </span>
                         </div>
                         
@@ -287,174 +142,262 @@
                             {% if match.game_duration %}{{ match.game_duration }}{% else %}-{% endif %}
                         </div>
                     </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div id="quarter-finals" class="match-stage">
+                <div class="match-card" style="border-color: var(--text-muted);">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>Group A 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group B 3rd</span></div>
+                    <div class="match-duration">Bo1</div>
+                </div>
+                <div class="match-card" style="border-color: var(--text-muted);">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>Group B 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group A 3rd</span></div>
+                    <div class="match-duration">Bo1</div>
+                </div>
+            </div>
+
+            <div id="semi-finals" class="match-stage">
+                <div class="match-card">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>Group A 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 2 Winner</span></div>
+                    <div class="match-duration">Bo3</div>
+                </div>
+                <div class="match-card">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>Group B 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 1 Winner</span></div>
+                    <div class="match-duration">Bo3</div>
+                </div>
+            </div>
+
+            <div id="finals" class="match-stage">
+                <div class="match-card" style="border-color: var(--text-title);">
+                    <div class="match-time">TBD</div>
+                    <div class="match-teams"><span>SF 1 Winner</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>SF 2 Winner</span></div>
+                    <div class="match-duration">Bo5</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rankings-container">
+            <h3 class="ranking-title">[ GROUP A ] Standings</h3>
+            <table class="ranking-table">
+                <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
+                <tbody>
+                    {% for row in group_a_standings %}
+                    <tr>
+                        <td><strong>{{ row.rank }}</strong></td>
+                        <td><strong>{{ row.team.name }}</strong></td>
+                        <td>{{ row.wins }}/{{ row.losses }}</td>
+                        <td>{{ row.avg_win_time_str }}</td>
+                    </tr>
                     {% empty %}
-                    <p>대진표가 없습니다.</p>
+                    <tr><td colspan="4">데이터 없음</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <h3 class="ranking-title" style="margin-top: 30px; color: #e74c3c;">[ GROUP B ] Standings</h3>
+            <table class="ranking-table">
+                <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
+                <tbody>
+                    {% for row in group_b_standings %}
+                    <tr>
+                        <td><strong>{{ row.rank }}</strong></td>
+                        <td><strong>{{ row.team.name }}</strong></td>
+                        <td>{{ row.wins }}/{{ row.losses }}</td>
+                        <td>{{ row.avg_win_time_str }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">데이터 없음</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <h2 id="player-list">Player List</h2>
+    <div class="toggle-container">
+        <button id="btn-tier" class="toggle-btn active" onclick="toggleView('tier')">티어별 보기</button>
+        <button id="btn-position" class="toggle-btn" onclick="toggleView('position')">포지션별 보기</button>
+    </div>
+
+    <div id="view-tier">
+        {% for tier_num, players in players_by_tier.items %}
+            <div class="tier-row">
+                <div class="tier-label">{{ tier_num }} Tier</div>
+                <div class="player-grid">
+                    {% for player in players %}
+                    <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                        <div class="card-title">
+                            {{ player.riot_id }}
+                            {% if player.team %}
+                                <span class="player-team-badge">{{ player.team.name }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="card"><div class="card-sub">공석</div></div>
                     {% endfor %}
                 </div>
-
-                <div id="semi-finals" class="match-stage">
-                    <div class="match-card">
-                        <div class="match-time">TBD</div>
-                        <div class="match-teams"><span>TBD</span> / <span>TBD</span></div>
-                        <div class="match-duration">Bo3</div>
-                    </div>
-                </div>
-
-                <div id="finals" class="match-stage">
-                    <div class="match-card" style="border-color: var(--text-dark);">
-                        <div class="match-time">TBD</div>
-                        <div class="match-teams"><span>TBD</span> / <span>TBD</span></div>
-                        <div class="match-duration">Bo5</div>
-                    </div>
-                </div>
             </div>
+        {% endfor %}
+    </div>
 
-            <div>
-                <h3 style="margin-bottom: 15px;">Current Ranking</h3>
-                <table class="ranking-table">
-                    <thead>
-                        <tr>
-                            <th>RANK</th>
-                            <th>TEAM</th>
-                            <th>W/L</th>
-                            <th>AVG TIME</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in standings %}
-                        <tr>
-                            <td><strong>{{ row.rank }}</strong></td>
-                            <td><strong>{{ row.team.name }}</strong></td>
-                            <td>{{ row.wins }}/{{ row.losses }}</td>
-                            <td>{{ row.avg_win_time_str }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <h2 id="player-list">Player List</h2>
+    <div id="view-position" style="display: none;">
         
-        <div class="toggle-container">
-            <button id="btn-tier" class="toggle-btn active" onclick="toggleView('tier')">티어별 보기</button>
-            <button id="btn-position" class="toggle-btn" onclick="toggleView('position')">포지션별 보기</button>
-        </div>
-        <div id="view-tier">
-            {% for tier_num, players in players_by_tier.items %}
-                <div class="tier-row">
-                    <div class="tier-label">{{ tier_num }} Tier</div>
-                    <div class="player-grid">
-                        {% for player in players %}
-                        
+        <div class="position-row">
+            <div class="position-label">TOP</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            
-                            <div class="card-title">
-                                {{ player.riot_id }}
-                                {% if player.team %}
-                                    <span class="player-team-badge">{{ player.team.name }}</span>
-                                {% endif %}
+                            <div class="card-title">{{ player.riot_id }}
+                                {% if player.main_position == 'TOP' %}<span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'TOP' %}<span class="pos-badge sub-pos">Sub</span>
+                                {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
-                            <div class="tooltip-content">
-                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
-                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
-                                <div><span>주 포지션</span> <strong>{{ player.get_main_position_display }}</strong></div>
-                                <div><span>부 포지션</span> <strong>{{ player.get_sub_position_display }}</strong></div>
-
-                                {% if player.note %}
-                                <div class="player-note">
-                                    <span>참고</span> <strong>{{ player.note }}</strong>
-                                </div>
-                                {% endif %}
-                            </div>
                         </div>
-                        {% empty %}
-                        <div class="card"><div class="card-sub">등록된 참가자가 없습니다.</div></div>
-                        {% endfor %}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-        <h2 id="schedule">[ OFFICIAL SCHEDULE ]</h2>
-        <div class="schedule-grid">
-            <div class="schedule-card">
-                <div class="sch-date">03.10</div>
-                <div class="sch-title">선수 등록 마감</div>
-                <div class="sch-desc">25명 선착순 (조기 마감 가능) 및 스크림 시작</div>
-            </div>
-            <div class="schedule-card">
-                <div class="sch-date">03.21</div>
-                <div class="sch-title">팀 로스터 확정</div>
-                <div class="sch-desc">이적 시장 종료 및 팀별 비밀 채널 오픈</div>
-            </div>
-            <div class="schedule-card">
-                <div class="sch-date">03.28</div>
-                <div class="sch-title">본선 1일차</div>
-                <div class="sch-desc">풀리그 (Round Robin) 매치 진행</div>
-            </div>
-            <div class="schedule-card">
-                <div class="sch-date">03.29</div>
-                <div class="sch-title">4강전 (Semi-Finals)</div>
-                <div class="sch-desc">상위 4개 팀 토너먼트 진출</div>
-            </div>
-            <div class="schedule-card tbd">
-                <div class="sch-date">T.B.D</div>
-                <div class="sch-title">결승전 (Finals)</div>
-                <div class="sch-desc">일정 추후 공지</div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
             </div>
         </div>
 
+        <div class="position-row">
+            <div class="position-label">JGL</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' %}
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">{{ player.riot_id }}
+                                {% if player.main_position == 'JGL' %}<span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'JGL' %}<span class="pos-badge sub-pos">Sub</span>
+                                {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="position-row">
+            <div class="position-label">MID</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' %}
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">{{ player.riot_id }}
+                                {% if player.main_position == 'MID' %}<span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'MID' %}<span class="pos-badge sub-pos">Sub</span>
+                                {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="position-row">
+            <div class="position-label">ADC</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' %}
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">{{ player.riot_id }}
+                                {% if player.main_position == 'ADC' %}<span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'ADC' %}<span class="pos-badge sub-pos">Sub</span>
+                                {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="position-row">
+            <div class="position-label">SUP</div>
+            <div class="player-grid">
+                {% for tier_num, players in players_by_tier.items %}
+                    {% for player in players %}
+                        {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' %}
+                        <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
+                            <div class="card-title">{{ player.riot_id }}
+                                {% if player.main_position == 'SUP' %}<span class="pos-badge main-pos">Main</span>
+                                {% elif player.sub_position == 'SUP' %}<span class="pos-badge sub-pos">Sub</span>
+                                {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
+                            </div>
+                            <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+    <h2 id="schedule">[ OFFICIAL SCHEDULE ]</h2>
     <h2 id="rules">[ SYSTEM & FORMAT ]</h2>
     <div class="rules-list">
         <div class="rule-item">
             <div class="rule-num">01</div>
             <div class="rule-text">
-                <strong>LEAGUE FORMAT | 대진표 및 예선전 진행 방식</strong>
-                <p>5팀 풀리그(Round Robin)로 총 10경기가 진행됩니다. 대진표와 진영(Blue/Red 각 2회 보장)은 시스템에 의해 100% 무작위로 추첨 및 배정됩니다.</p>
+                <strong>GROUP STAGE | 조별 리그 진행 방식</strong>
+                <p>총 6팀이 무작위 추첨을 통해 2개 조(Group A, Group B)로 나뉘어 조별 풀리그(단판승부)를 진행합니다. 각 팀은 공평하게 블루/레드 진영을 1회씩 플레이합니다.</p>
             </div>
         </div>
         <div class="rule-item">
             <div class="rule-num">02</div>
             <div class="rule-text">
-                <strong>TIE-BREAKERS | 순위 결정 시스템</strong>
-                <p>풀리그 랭킹은 다음 순서로 산정됩니다: 1순위 다승(Wins) | 2순위 승자승(Head-to-Head) | 3순위 평균 최단 승리 시간(Speedrun). 동점 시 가장 빠르게 승리한 팀이 진출합니다.</p>
+                <strong>TIE-BREAKERS | 조별 순위 결정 시스템</strong>
+                <p>각 조의 순위는 다음 기준으로 산정됩니다: 1순위 다승(Wins) | 2순위 승자승(Head-to-Head) | 3순위 평균 최단 승리 시간(Speedrun). 3팀 동률 시 즉시 스피드런 랭킹으로 결정됩니다.</p>
             </div>
         </div>
         <div class="rule-item">
             <div class="rule-num">03</div>
             <div class="rule-text">
-                <strong>PLAYOFFS | 세미파이널 진출</strong>
-                <p>풀리그 종료 후 상위 4개 팀이 플레이오프에 진출합니다. 대진은 [ 1위 vs 4위 ] 및 [ 2위 vs 3위 ]로 강제 배정되며, 승리 팀이 결승에 진출합니다.</p>
+                <strong>KNOCKOUT & PLAYOFFS | 토너먼트 진출 방식</strong>
+                <p>각 조 1위(총 2팀)는 세미파이널(4강)에 직행합니다. 각 조 2위와 3위는 크로스 매치업(A조 2위 vs B조 3위 / B조 2위 vs A조 3위)으로 단판 데스매치(Quarter-Finals)를 치러 세미파이널 진출을 결정합니다.</p>
             </div>
         </div>
         <div class="rule-item">
             <div class="rule-num">04</div>
             <div class="rule-text">
                 <strong>FEARLESS DRAFT | 피어리스 밴픽</strong>
-                <p>다전제 진행 시, 본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다.</p>
+                <p>다전제(Bo3, Bo5) 진행 시, 본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다.</p>
             </div>
         </div>
-    </div>    
+    </div>
 </div>
 
-    <footer>
-        <p>Strictly for the personal satisfaction of the event organizer. Nothing more. Nothing less.</p>
-        <p>System Dev & Support | Discord: zooeun</p>
-    </footer>
-</div>
+<footer>
+    <p>Strictly for the personal satisfaction of the event organizer. Nothing more. Nothing less.</p>
+    <p>System Dev & Support | Discord: zooeun</p>
+</footer>
 
 <script>
 function switchTab(tabId, element) {
-    // 1. 모든 탭 컨텐츠 숨기기
     document.querySelectorAll('.match-stage').forEach(tab => tab.classList.remove('active'));
-    // 2. 모든 메뉴 선택 해제
     document.querySelectorAll('.stage-item').forEach(item => {
         item.classList.remove('active');
         item.style.borderBottomColor = 'var(--border-light)';
     });
-    // 3. 클릭한 탭 컨텐츠 보여주기
     document.getElementById(tabId).classList.add('active');
-    // 4. 클릭한 메뉴 활성화
     element.classList.add('active');
     element.style.borderBottomColor = 'var(--text-dark)';
 }
@@ -477,41 +420,6 @@ function toggleView(viewType) {
         btnTier.classList.remove('active');
     }
 }
-document.addEventListener("DOMContentLoaded", function() {
-    // 1. 오늘 날짜 및 현재 연도 가져오기
-    const today = new Date();
-    const currentYear = today.getFullYear(); // 2026
-
-    // 2. 모든 스케줄 카드 선택
-    const scheduleCards = document.querySelectorAll('.schedule-card');
-
-    scheduleCards.forEach(card => {
-        // 3. 카드 안의 날짜 텍스트 (예: "03.10") 가져오기
-        const dateElement = card.querySelector('.sch-date');
-        if (!dateElement) return;
-        
-        const dateText = dateElement.innerText.trim();
-        
-        // "T.B.D" (미정)인 경우는 무시
-        if (dateText === 'T.B.D') return; 
-
-        // 4. "MM.DD" 형식을 분리해서 실제 날짜 객체로 변환
-        const parts = dateText.split('.');
-        if (parts.length === 2) {
-            const month = parseInt(parts[0], 10) - 1; // 자바스크립트는 월(Month)을 0부터 계산함
-            const day = parseInt(parts[1], 10);
-            
-            // 타겟 날짜의 자정 직전(23시 59분 59초)으로 기준점 세팅
-            const targetDate = new Date(currentYear, month, day, 23, 59, 59);
-
-            // 5. 오늘 날짜가 타겟 날짜를 넘어섰다면 'completed' 클래스 자동 추가
-            if (today > targetDate) {
-                card.classList.add('completed');
-            }
-        }
-    });
-});
 </script>
-
 </body>
 </html>
