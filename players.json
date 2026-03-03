@@ -66,7 +66,8 @@
       "riot_id": "backjozzang#NA1", 
       "discord_username": "jaeseung0624", 
       "discord_user_id": "581730521655148544", 
-      "tier": 1, "team": null, 
+      "tier": 1, 
+      "team": null, 
       "highest_rank": "Diamond 3", 
       "solo_rank": "Emerald 1", 
       "main_position": "ADC", 
@@ -360,6 +361,37 @@
       "solo_rank": "Platinum 3", 
       "main_position": "MID", 
       "sub_position": "ADC"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 25,
+    "fields": {
+      "riot_id": "Jejunum#3502", 
+      "discord_username": "jejunum3945", 
+      "discord_user_id": "510626223190310922",
+      "tier": 5, 
+      "team": null, 
+      "highest_rank": "Bronze 1", 
+      "solo_rank": "Bronze 4", 
+      "main_position": "ADC", 
+      "sub_position": "TOP"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 26,
+    "fields": {
+      "riot_id": "그냥랄룽#0616", 
+      "discord_username": "geonung4254", 
+      "discord_user_id": "TEMP_26",
+      "tier": 3, 
+      "team": null, 
+      "highest_rank": "Emerald 1", 
+      "solo_rank": "Platinum 1", 
+      "main_position": "MID", 
+      "sub_position": "TOP",
+      "note": "정글 가능"
     }
   }
 ]

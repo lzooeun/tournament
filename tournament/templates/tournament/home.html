@@ -7,7 +7,7 @@
     <meta property="og:title" content="2026 TÆKTUBE INVITATIONAL">
     <meta property="og:description" content="Montreal Edition S1 | 전체 대진표, 참가자 목록, 실시간 랭킹 확인하기">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://taektube-montreal.onrender.com/"> 
+    <meta property="og:url" content="https://taektube.lol/"> <meta property="og:image" content="https://i.imgur.com/QD8m51b.png"> 
     <meta name="theme-color" content="#6C85DE">
     <title>2026 TÆKTUBE INVITATIONAL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,12 +15,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <link rel="stylesheet" href="{% static 'tournament/css/style.css' %}">
+    <link rel="icon" type="image/png" href="https://i.imgur.com/QD8m51b.png">
 </head>
 <body>
 <nav class="navbar">
     <div class="nav-container">
         <div class="nav-logo">
             <a href="/" class="nav-logo">
+                <img src="https://i.imgur.com/4QcEdg8.png" alt="TÆKTUBE Logo"class="logo-img">
                 <span>TÆKTUBE</span> 
             </a>
         </div>
@@ -335,12 +337,27 @@
                     {% for player in players %}
                     <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
                         <div class="card-title">
-                            {{ player.riot_id }}
+                            <span class="player-riot-id">{{ player.riot_id }}</span>
+                            
                             {% if player.team %}
                                 <span class="player-team-badge">{{ player.team.name }}</span>
                             {% endif %}
                         </div>
                         <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                        
+                         <div class="tooltip-content">
+                            <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                            <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                            <div><span>주 포지션</span> <strong>{{ player.get_main_position_display }}</strong></div>
+                            <div><span>부 포지션</span> <strong>{{ player.get_sub_position_display }}</strong></div>
+
+                            {% if player.note %}
+                            <div class="player-note">
+                                <span>참고</span> <strong>{{ player.note }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+                            
                     </div>
                     {% empty %}
                     <div class="card"><div class="card-sub">공석</div></div>

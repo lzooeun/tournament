@@ -196,7 +196,7 @@ class ApprovalView(discord.ui.View):
             ephemeral=False
         )
         self.stop()
-        
+
 # ==========================================
 # 팀 이름 자동완성 함수
 # ==========================================
@@ -725,20 +725,28 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
 
 
 # ==========================================
-# /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 피어리스 밴픽 적용
+# /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 배너 가이드 포함
 # ==========================================
-@bot.tree.command(name="공지배포", description="[관리자 전용] 공식 채널에 시스템 봇 이름으로 공지사항을 배포합니다.")
+@bot.tree.command(name="공지배포", description="[관리자 전용] 공식 채널에 시스템 봇 이름으로 공지사항 및 가이드를 배포합니다.")
 @app_commands.describe(notice_type="배포할 공지 종류를 선택하세요")
 @app_commands.choices(notice_type=[
     app_commands.Choice(name="1. 메인 공지 및 스케줄", value="schedule"),
-    app_commands.Choice(name="2. 공식 대회 룰북 (피어리스 밴픽 포함)", value="rules"),
+    app_commands.Choice(name="2. 공식 대회 룰북 (토너먼트 반영)", value="rules"),
     app_commands.Choice(name="3. 웹사이트 링크", value="website"),
+    app_commands.Choice(name="4. [가이드] 팀 가입 방법 (배너 포함)", value="guide_join"),
+    app_commands.Choice(name="5. [가이드] 결과 제출 방법 (배너 포함)", value="guide_submit"),
+    app_commands.Choice(name="6. 봇 사용법 공지", value="bot_guide"),
 ])
 @app_commands.default_permissions(administrator=True)
 async def send_official_notice(interaction: discord.Interaction, notice_type: str):
     
-    embed_color = 0x111111
+    embed_color = 0x6C85DE # 네 시그니처 블루 컬러! (기존 0x111111에서 변경)
     
+    # 🚨 여기에 네가 디스코드에 올린 배너 이미지 링크를 넣어야 해!
+    # (디스코드 아무 비공개 채널에 사진 올리고 -> 우클릭 -> 링크 복사)
+    TEAM_SIGNUP_IMG_URL = "https://i.imgur.com/jjUufqx.png"
+    SUBMIT_RESULT_IMG_URL = "https://i.imgur.com/JB1zLCU.png"
+
     if notice_type == "schedule":
         embed = discord.Embed(
             title="[ 2026 TÆKTUBE INVITATIONAL ]",
@@ -748,16 +756,37 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
         embed.add_field(
             name="[ OFFICIAL SCHEDULE ]", 
             value=(
-                "- **03.10** | 선수 등록 마감 (25명 선착순 조기 마감 가능)\n"
-                "- **03.10 ~** | 공식 스크림 기간\n"
-                "- **03.21** | 팀 로스터 등록 및 확정일\n"
-                "- **03.28** | 본선 1일차 (풀리그 진행)\n"
-                "- **03.29** | 4강전 (Semi-Finals)\n"
-                "- **T.B.D** | 결승전 (Finals - 추후 결정)"
+                "- **03.10 (화) 23:59** | 선수 등록 마감 (총 30명 선착순 조기 마감 가능)\n"
+                "- **03.03.10 (화) ~** | 공식 스크림 기간 시작\n"
+                "- **03.21 (토) 23:59** | 팀 로스터 확정 (이적 시장 종료 & 조 추첨)\n"
+                "- **03.28 (토) 21:00** | Group Stage (A/B조 단판 풀리그) & 데스매치\n"
+                "- **03.29 (일) 21:00** | Semi Final (4강전)\n"
+                "- **T.B.D** | Grand Final (결승전 - 추후 공지)"
             ), 
             inline=False
         )
         embed.set_footer(text="* STRICTLY FOR PERSONAL SATISFACTION")
+
+    elif notice_type == "bot_guide":
+        embed.add_field(
+            name="[ SYSTEM GUIDE: TEAM SIGN-UP (팀 가입) ]", 
+            value=(
+                "📍 **채널:** <#1477537891214426262> (이동 클릭)\n"
+                "⌨️ **명령어:** `/팀가입` 입력 후 자동완성 리스트에서 선택\n"
+                "- 이적 시장 마감일 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n"
+                "- 팀당 정원은 최대 5명이며, 5명 초과 시 시스템에 의해 가입이 차단됩니다."
+            ), 
+            inline=False
+        )
+        embed.add_field(
+            name="[ SYSTEM GUIDE: RESULT SUBMISSION (결과 제출) ]", 
+            value=(
+                "📍 **채널:** <#1477537918817013760> (이동 클릭)\n"
+                "⌨️ **명령어:** `/결과제출` (승리 팀, 경기 시간, **승리 화면 스크린샷** 첨부 필수)\n"
+                "🚨 **[다전제 주의사항]** 세미파이널(Bo3)과 결승전(Bo5)은 시리즈 종료 후가 아닌, **'매 세트가 종료될 때마다'** 1번씩 결과를 제출해야 시스템이 스코어를 누적합니다."
+            ), 
+            inline=False
+        )
         
     elif notice_type == "rules":
         embed = discord.Embed(
@@ -765,43 +794,67 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             description="원활한 대회 진행을 위한 공식 시스템 규정입니다. 미숙지로 인한 불이익은 전적으로 본인에게 있습니다.",
             color=embed_color
         )
+        # ✨ 새로 추가된 시스템 진행 방식 룰
         embed.add_field(
-            name="01. ACCOUNT INTEGRITY | 계정 원칙", 
+            name="01. TOURNAMENT BRACKET | 대진표 및 진출 시스템", 
+            value=(
+                "모든 팀은 무작위 조 추첨을 통해 A조 또는 B조에 배정되어 단판 풀리그(Bo1)를 치릅니다.\n\n"
+                "⚔️ **[ Deathmatch (Quarter-Finals) - Bo1 ]**\n"
+                "- **DM 1:** A조 2위 vs B조 3위\n"
+                "- **DM 2:** B조 2위 vs A조 3위\n\n"
+                "🌟 **[ Semi-Finals (4강전) - Bo3 ]**\n"
+                "- **SF 1:** B조 1위 (직행) vs **DM 1 승자**\n"
+                "- **SF 2:** A조 1위 (직행) vs **DM 2 승자**\n\n"
+                "🏆 **[ Grand Final (결승전) - Bo5 ]**\n"
+                "- **SF 1 승자** vs **SF 2 승자**"
+            ), 
+            inline=False
+        )
+        embed.add_field(
+            name="02. TIE-BREAKERS | 조별 순위 결정 규칙", 
+            value=(
+                "- 조별 리그 순위는 다음 순서로 산정됩니다: 1순위 다승(Wins) | 2순위 승자승(Head-to-Head) | 3순위 스피드런(평균 최단 승리 시간).\n"
+                "- 3팀이 모두 1승 1패로 동률일 경우, 즉시 '스피드런' 랭킹으로 결정되며 가장 짧은 시간에 승리한 팀이 상위 순위를 차지합니다."
+            ), 
+            inline=False
+        )
+        embed.add_field(
+            name="03. ACCOUNT INTEGRITY | 계정 원칙", 
             value="- 반드시 본 계정만 사용해야 합니다. 부계정(Smurf) 적발 시 즉각 실격되며 환불은 불가합니다.\n* [ EX ] 대리 게임 또는 의심 사례 발생 시 운영진이 디스코드 화면 공유 등으로 본인 인증을 요구할 수 있습니다.", 
             inline=False
         )
         embed.add_field(
-            name="02. PUNCTUALITY | 지각 규정", 
+            name="04. PUNCTUALITY | 지각 규정", 
             value="- 경기 5분 전 지정 로비 및 보이스 접속 필수.\n- 지각 시 5분 단위로 밴 카드 1장씩 압수되며, 15분 이상 지각 시 해당 팀은 실격(Auto DQ) 처리됩니다.\n* [ EX ] 20:00 경기일 경우, 20:05~20:09 도착 시 밴 카드 1장 압수.", 
             inline=False
         )
         embed.add_field(
-            name="03. CONDUCT | 매너 및 채팅", 
+            name="05. CONDUCT | 매너 및 채팅", 
             value="- 도발이나 감정 표현은 허용되나, 타인에게 직접적인 욕설은 엄격히 금지합니다.\n- 상대 팀의 중단 요청(Respect the Ask) 시 즉각 수용해야 합니다.\n- 누적 2회 경고 후에도 지속될 경우(Three Strikes) 팀 전체가 퇴출됩니다.", 
             inline=False
         )
         embed.add_field(
-            name="04. TECHNICAL PAUSE | 퍼즈 규정", 
+            name="06. TECHNICAL PAUSE | 퍼즈 규정", 
             value="- 인터넷 및 하드웨어 등 합당한 문제 발생 시에만 허용되며, 경기당 팀별 최대 10분으로 엄격히 제한됩니다.\n* [ EX ] 핑 문제, 마우스 연결 끊김 등. 단, 화장실이나 담배 타임 목적의 퍼즈는 절대 불가합니다.", 
             inline=False
         )
         embed.add_field(
-            name="05. COMMUNICATION | 소통 및 운영", 
+            name="07. COMMUNICATION | 소통 및 운영", 
             value="- 게임 중에는 팀 전체가 배정된 음성 채널에 들어가 있어야 합니다.\n- 관전자는 마이크 사용이 절대 금지됩니다.\n- 문제 발생 및 이의 제기 시 시스템 관리자(`JYPIMNIDA`)에게 즉각 연락하십시오.", 
             inline=False
         )
         embed.add_field(
-            name="06. REGISTRATION & FEES | 등록 및 환불", 
+            name="08. REGISTRATION & FEES | 등록 및 환불", 
             value="- 등록 마감 후 참가 비용이 청구될 예정입니다.\n- 룰 위반 및 지각 등으로 인한 실격 시 어떠한 경우에도 환불은 없습니다.", 
             inline=False
         )
         embed.add_field(
-            name="07. FEARLESS DRAFT | 피어리스 밴픽", 
-            value="- 본인이 속한 팀이 이전 세트에서 픽했던 챔피언은 다음 세트에서 다시 선택할 수 없습니다.\n* [ EX ] 1세트에서 A팀이 '아리'를 사용했다면, 2세트와 3세트에서 A팀은 '아리'를 픽할 수 없습니다. (상대 팀은 가능)", 
+            name="09. FEARLESS DRAFT | 피어리스 밴픽", 
+            value="- 다전제(Bo3, Bo5) 진행 시, 이전 세트에서 한 번이라도 등장한(픽된) 챔피언은 해당 매치의 남은 세트 동안 **양 팀 모두** 다시 선택할 수 없습니다.\n* [ EX ] 1세트에서 A팀이 '아리'를 픽했다면, 이어지는 2, 3세트에서는 A팀과 B팀 모두 '아리'를 사용할 수 없습니다.", 
             inline=False
         )
         embed.add_field(
-            name="08. ORGANIZER'S NOTE | 운영자 유의사항", 
+            name="10. ORGANIZER'S NOTE | 운영자 유의사항", 
             value="- 참가자와 운영진 모두 프로 선수가 아닙니다. 상호 존중을 지켜주시고 시스템의 통제에 따라주십시오.", 
             inline=False
         )
@@ -815,12 +868,54 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
         embed.add_field(name="[ LINK ]", value="https://taektube.lol/", inline=False) 
         embed.add_field(
             name="[ SYSTEM TRACKING ]", 
-            value="- 실시간 풀리그 랭킹 및 경기 결과\n- 참가자별 티어 및 포지션 분포표\n- 확정된 팀별 공식 로스터", 
+            value="- 실시간 대진표 및 토너먼트 진행 상황\n- A조/B조 랭킹 보드\n- 참가자별 티어 및 포지션 분포표", 
             inline=False
         )
 
-    await interaction.response.send_message("✅ 시스템 봇이 해당 채널에 오피셜 공지를 배포했습니다.", ephemeral=True)
-    await interaction.channel.send(embed=embed)
+    elif notice_type == "guide_join":
+        embed = discord.Embed(
+            title="[ SYSTEM GUIDE: TEAM SIGN-UP ]",
+            description="선수 등록을 마친 참가자는 아래 명령어를 통해 팀에 합류하십시오.",
+            color=embed_color
+        )
+        embed.set_image(url=TEAM_SIGNUP_IMG_URL)
+        embed.add_field(
+            name="[ 명령어 사용법 ]",
+            value="💬 채팅창에 `/팀가입`을 입력하고, 자동완성되는 리스트에서 원하는 팀을 선택하세요.",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 유의사항 ]",
+            value="- 한 팀의 정원은 최대 5명이며, 초과 시 가입이 차단됩니다.\n- 이적 시장 마감일(03.21) 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n- 마감 이후에는 팀이 고정되며 각 팀별 프라이빗 전략 채널이 오픈됩니다.",
+            inline=False
+        )
+
+    elif notice_type == "guide_submit":
+        embed = discord.Embed(
+            title="[ SYSTEM GUIDE: RESULT SUBMISSION ]",
+            description="경기가 종료되면 승리 팀은 즉시 시스템에 결과를 보고해야 합니다.",
+            color=embed_color
+        )
+        embed.set_image(url=SUBMIT_RESULT_IMG_URL)
+        embed.add_field(
+            name="[ 명령어 사용법 ]",
+            value="💬 지정된 결과 제출 채널에서 `/결과제출` 명령어를 사용하세요.\n승리한 팀 이름, 경기 시간(MM:SS), 그리고 **승리 화면 스크린샷** 첨부가 필수입니다.",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 다전제 (Bo3 / Bo5) 제출 룰 ] 🚨 필수 숙지",
+            value="- 조별 리그 및 데스매치는 1경기 종료 후 1회 제출합니다.\n- **세미파이널과 결승전은 '매 세트가 끝날 때마다' 결과를 제출하십시오.**\n- 시스템이 자동으로 스코어를 누적 계산하여 최종 승자를 판별합니다.",
+            inline=False
+        )
+
+    # 봇이 메시지를 보내기 전에 생각할 시간 벌기
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        await interaction.channel.send(embed=embed)
+        await interaction.followup.send("✅ 시스템 봇이 해당 채널에 오피셜 공지/가이드를 배포했습니다.", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"❌ 메시지 전송 실패: {e}", ephemeral=True)
 
 if __name__ == "__main__":
     keep_alive()
