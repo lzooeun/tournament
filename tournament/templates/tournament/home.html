@@ -147,74 +147,166 @@
             </div>
 
             <div id="quarter-finals" class="match-stage">
-                <div class="match-card" style="border-color: var(--text-muted);">
-                    <div class="match-time">TBD</div>
-                    <div class="match-teams"><span>Group A 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group B 3rd</span></div>
-                    <div class="match-duration">Bo1</div>
-                </div>
-                <div class="match-card" style="border-color: var(--text-muted);">
-                    <div class="match-time">TBD</div>
-                    <div class="match-teams"><span>Group B 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group A 3rd</span></div>
-                    <div class="match-duration">Bo1</div>
-                </div>
+                {% for match in matches %}
+                    {% if match.stage == 'DEATHMATCH' %}
+                        <div class="match-card {% if match.is_completed %}completed{% endif %}"
+                            {% if match.is_completed and match.screenshot_url %}
+                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
+                            {% endif %}>
+                            <div class="match-time">
+                                {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                            </div>
+                            <div class="match-teams">
+                                <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
+                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
+                                <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
+                            </div>
+                            <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo1{% endif %}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if matches|length < 7 %}
+                    <div class="match-card" style="border-color: var(--text-muted); opacity: 0.5;">
+                        <div class="match-time">TBD</div>
+                        <div class="match-teams"><span>Group A 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group B 3rd</span></div>
+                        <div class="match-duration">Bo1</div>
+                    </div>
+                    <div class="match-card" style="border-color: var(--text-muted); opacity: 0.5;">
+                        <div class="match-time">TBD</div>
+                        <div class="match-teams"><span>Group B 2nd</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>Group A 3rd</span></div>
+                        <div class="match-duration">Bo1</div>
+                    </div>
+                {% endif %}
             </div>
 
             <div id="semi-finals" class="match-stage">
-                <div class="match-card">
-                    <div class="match-time">TBD</div>
-                    <div class="match-teams"><span>Group A 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 2 Winner</span></div>
-                    <div class="match-duration">Bo3</div>
-                </div>
-                <div class="match-card">
-                    <div class="match-time">TBD</div>
-                    <div class="match-teams"><span>Group B 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 1 Winner</span></div>
-                    <div class="match-duration">Bo3</div>
-                </div>
+                {% for match in matches %}
+                    {% if match.stage == 'SEMI' %}
+                        <div class="match-card {% if match.is_completed %}completed{% endif %}"
+                            {% if match.is_completed and match.screenshot_url %}
+                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
+                            {% endif %}>
+                            <div class="match-time">
+                                {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                            </div>
+                            <div class="match-teams">
+                                <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
+                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
+                                <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
+                            </div>
+                            <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo3{% endif %}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if matches|length < 9 %}
+                    <div class="match-card" style="opacity: 0.5;">
+                        <div class="match-time">TBD</div>
+                        <div class="match-teams"><span>Group A 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 2 Winner</span></div>
+                        <div class="match-duration">Bo3</div>
+                    </div>
+                    <div class="match-card" style="opacity: 0.5;">
+                        <div class="match-time">TBD</div>
+                        <div class="match-teams"><span>Group B 1st</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>QF 1 Winner</span></div>
+                        <div class="match-duration">Bo3</div>
+                    </div>
+                {% endif %}
             </div>
 
             <div id="finals" class="match-stage">
-                <div class="match-card" style="border-color: var(--text-title);">
-                    <div class="match-time">TBD</div>
-                    <div class="match-teams"><span>SF 1 Winner</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>SF 2 Winner</span></div>
-                    <div class="match-duration">Bo5</div>
-                </div>
+                {% for match in matches %}
+                    {% if match.stage == 'FINAL' %}
+                        <div class="match-card {% if match.is_completed %}completed{% endif %}" style="border-color: var(--text-title);"
+                            {% if match.is_completed and match.screenshot_url %}
+                            onclick="window.open('{{ match.screenshot_url }}', '_blank')" style="cursor: pointer;"
+                            {% endif %}>
+                            <div class="match-time">
+                                {% if match.scheduled_time %}{{ match.scheduled_time }}{% else %}Game {{ match.match_number }}{% endif %}
+                            </div>
+                            <div class="match-teams">
+                                <span class="{% if match.winner == match.team_a %}winner{% endif %}">{{ match.team_a.name }}</span>
+                                <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span>
+                                <span class="{% if match.winner == match.team_b %}winner{% endif %}">{{ match.team_b.name }}</span>
+                            </div>
+                            <div class="match-duration">{% if match.game_duration %}{{ match.game_duration }}{% else %}Bo5{% endif %}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if matches|length < 11 %}
+                    <div class="match-card" style="border-color: var(--text-title); opacity: 0.5;">
+                        <div class="match-time">TBD</div>
+                        <div class="match-teams"><span>SF 1 Winner</span> <span style="color:var(--text-muted); font-size: 0.9em; margin: 0 5px;">vs</span> <span>SF 2 Winner</span></div>
+                        <div class="match-duration">Bo5</div>
+                    </div>
+                {% endif %}
             </div>
         </div>
 
-        <div class="rankings-container">
-            <h3 class="ranking-title">[ GROUP A ] Standings</h3>
-            <table class="ranking-table">
-                <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
-                <tbody>
-                    {% for row in group_a_standings %}
-                    <tr>
-                        <td><strong>{{ row.rank }}</strong></td>
-                        <td><strong>{{ row.team.name }}</strong></td>
-                        <td>{{ row.wins }}/{{ row.losses }}</td>
-                        <td>{{ row.avg_win_time_str }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">데이터 없음</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="right-panel-container">
+            
+            <div id="group-rankings-panel">
+                <h3 class="ranking-title">[ GROUP A ] Standings</h3>
+                <table class="ranking-table">
+                    <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
+                    <tbody>
+                        {% for row in group_a_standings %}
+                        <tr>
+                            <td><strong>{{ row.rank }}</strong></td>
+                            <td><strong>{{ row.team.name }}</strong></td>
+                            <td>{{ row.wins }}/{{ row.losses }}</td>
+                            <td>{{ row.avg_win_time_str }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">데이터 없음</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
 
-            <h3 class="ranking-title" style="margin-top: 30px; color: #e74c3c;">[ GROUP B ] Standings</h3>
-            <table class="ranking-table">
-                <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
-                <tbody>
-                    {% for row in group_b_standings %}
-                    <tr>
-                        <td><strong>{{ row.rank }}</strong></td>
-                        <td><strong>{{ row.team.name }}</strong></td>
-                        <td>{{ row.wins }}/{{ row.losses }}</td>
-                        <td>{{ row.avg_win_time_str }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4">데이터 없음</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                <h3 class="ranking-title" style="margin-top: 30px; color: #e74c3c;">[ GROUP B ] Standings</h3>
+                <table class="ranking-table">
+                    <thead><tr><th>RANK</th><th>TEAM</th><th>W/L</th><th>AVG TIME</th></tr></thead>
+                    <tbody>
+                        {% for row in group_b_standings %}
+                        <tr>
+                            <td><strong>{{ row.rank }}</strong></td>
+                            <td><strong>{{ row.team.name }}</strong></td>
+                            <td>{{ row.wins }}/{{ row.losses }}</td>
+                            <td>{{ row.avg_win_time_str }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">데이터 없음</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="knockout-tree-panel" style="display: none; flex-direction: column; gap: 15px;">
+                <h3 class="ranking-title" style="color: var(--text-title);">[ ROAD TO FINALS ]</h3>
+                
+                <div class="bracket-box">
+                    <div class="bracket-title">SEMI FINAL 1</div>
+                    <div class="bracket-team">Group A 1st</div>
+                    <div class="bracket-vs">vs</div>
+                    <div class="bracket-team">(B2 vs A3) Winner</div>
+                </div>
+
+                <div class="bracket-box" style="border-color: #e74c3c;">
+                    <div class="bracket-title" style="color: #e74c3c;">SEMI FINAL 2</div>
+                    <div class="bracket-team">Group B 1st</div>
+                    <div class="bracket-vs">vs</div>
+                    <div class="bracket-team">(A2 vs B3) Winner</div>
+                </div>
+
+                <div class="bracket-box" style="border-color: var(--text-title); margin-top: 15px;">
+                    <div class="bracket-title" style="color: var(--text-title);">GRAND FINAL</div>
+                    <div class="bracket-team">SF 1 Winner</div>
+                    <div class="bracket-vs">vs</div>
+                    <div class="bracket-team">SF 2 Winner</div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -352,6 +444,34 @@
     </div>
 
     <h2 id="schedule">[ OFFICIAL SCHEDULE ]</h2>
+    <div class="schedule-grid">
+        <div class="schedule-card">
+            <div class="sch-date">03.10</div>
+            <div class="sch-title">선수 등록 마감</div>
+            <div class="sch-desc">총 30명 선착순 마감 (6개 팀 규모 확장) 및 공식 스크림 시작</div>
+        </div>
+        <div class="schedule-card">
+            <div class="sch-date">03.21</div>
+            <div class="sch-title">로스터 확정 & 조 추첨</div>
+            <div class="sch-desc">이적 시장 종료 및 Group A / Group B 무작위 조 추첨 진행</div>
+        </div>
+        <div class="schedule-card">
+            <div class="sch-date">03.28</div>
+            <div class="sch-title">Group Stage</div>
+            <div class="sch-desc">A조 & B조 조별 풀리그 진행 (단판승부)</div>
+        </div>
+        <div class="schedule-card">
+            <div class="sch-date">03.29</div>
+            <div class="sch-title">Knockout Stage</div>
+            <div class="sch-desc">데스매치(Quarter) 및 세미파이널(4강전) 진행</div>
+        </div>
+        <div class="schedule-card tbd">
+            <div class="sch-date">T.B.D</div>
+            <div class="sch-title">Grand Final</div>
+            <div class="sch-desc">대망의 결승전 (Bo5 진행, 일정 추후 공지)</div>
+        </div>
+    </div>
+
     <h2 id="rules">[ SYSTEM & FORMAT ]</h2>
     <div class="rules-list">
         <div class="rule-item">
@@ -400,6 +520,17 @@ function switchTab(tabId, element) {
     document.getElementById(tabId).classList.add('active');
     element.classList.add('active');
     element.style.borderBottomColor = 'var(--text-dark)';
+
+    const rankingsPanel = document.getElementById('group-rankings-panel');
+    const treePanel = document.getElementById('knockout-tree-panel');
+
+    if (tabId === 'group-stage') {
+        rankingsPanel.style.display = 'block';
+        treePanel.style.display = 'none';
+    } else {
+        rankingsPanel.style.display = 'none';
+        treePanel.style.display = 'flex';
+    }
 }
 
 function toggleView(viewType) {
@@ -420,6 +551,33 @@ function toggleView(viewType) {
         btnTier.classList.remove('active');
     }
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. 오늘 날짜 및 현재 연도 가져오기
+    const today = new Date();
+    const currentYear = today.getFullYear(); // 2026
+    // 2. 모든 스케줄 카드 선택
+    const scheduleCards = document.querySelectorAll('.schedule-card');
+    scheduleCards.forEach(card => {
+        // 3. 카드 안의 날짜 텍스트 (예: "03.10") 가져오기
+        const dateElement = card.querySelector('.sch-date');
+        if (!dateElement) return;
+        const dateText = dateElement.innerText.trim();
+        // "T.B.D" (미정)인 경우는 무시
+        if (dateText === 'T.B.D') return;
+        // 4. "MM.DD" 형식을 분리해서 실제 날짜 객체로 변환
+        const parts = dateText.split('.');
+        if (parts.length === 2) {
+            const month = parseInt(parts[0], 10) - 1; // 자바스크립트는 월(Month)을 0부터 계산함
+            const day = parseInt(parts[1], 10);
+            const targetDate = new Date(currentYear, month, day, 23, 59, 59);
+            // 5. 오늘 날짜가 타겟 날짜를 넘어섰다면 'completed' 클래스 자동 추가
+            if (today > targetDate) {
+                card.classList.add('completed');
+            }
+        }
+    });
+});
 </script>
 </body>
 </html>

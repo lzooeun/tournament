@@ -550,6 +550,38 @@ footer {
     flex-direction: column;
 }
 
+/* Knockout Tree Bracket Boxes */
+.bracket-box {
+    background-color: var(--bg-card);
+    border: 1px solid var(--primary-color);
+    border-radius: 6px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+}
+
+.bracket-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.bracket-team {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    padding: 5px 0;
+}
+
+.bracket-vs {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
 /* ==========================================
    7. Responsive Design (Mobile)
    ========================================== */
