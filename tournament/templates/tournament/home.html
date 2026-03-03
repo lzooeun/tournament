@@ -376,12 +376,23 @@
                     {% for player in players %}
                         {% if player.main_position == 'TOP' or player.sub_position == 'TOP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            <div class="card-title">{{ player.riot_id }}
+                            <div class="card-title">
+                                <span class="player-riot-id">{{ player.riot_id }}</span>
+                                
                                 {% if player.main_position == 'TOP' %}<span class="pos-badge main-pos">Main</span>
                                 {% elif player.sub_position == 'TOP' %}<span class="pos-badge sub-pos">Sub</span>
                                 {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -396,12 +407,22 @@
                     {% for player in players %}
                         {% if player.main_position == 'JGL' or player.sub_position == 'JGL' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            <div class="card-title">{{ player.riot_id }}
+                            <div class="card-title">
+                                <span class="player-riot-id">{{ player.riot_id }}</span>
                                 {% if player.main_position == 'JGL' %}<span class="pos-badge main-pos">Main</span>
                                 {% elif player.sub_position == 'JGL' %}<span class="pos-badge sub-pos">Sub</span>
                                 {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -416,12 +437,22 @@
                     {% for player in players %}
                         {% if player.main_position == 'MID' or player.sub_position == 'MID' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            <div class="card-title">{{ player.riot_id }}
+                            <div class="card-title">
+                                <span class="player-riot-id">{{ player.riot_id }}</span>
                                 {% if player.main_position == 'MID' %}<span class="pos-badge main-pos">Main</span>
                                 {% elif player.sub_position == 'MID' %}<span class="pos-badge sub-pos">Sub</span>
                                 {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -436,12 +467,22 @@
                     {% for player in players %}
                         {% if player.main_position == 'ADC' or player.sub_position == 'ADC' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            <div class="card-title">{{ player.riot_id }}
+                            <div class="card-title">
+                                <span class="player-riot-id">{{ player.riot_id }}</span>
                                 {% if player.main_position == 'ADC' %}<span class="pos-badge main-pos">Main</span>
                                 {% elif player.sub_position == 'ADC' %}<span class="pos-badge sub-pos">Sub</span>
                                 {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     {% endfor %}
@@ -456,19 +497,28 @@
                     {% for player in players %}
                         {% if player.main_position == 'SUP' or player.sub_position == 'SUP' or player.main_position == 'FILL' or player.sub_position == 'FILL' %}
                         <div class="card tooltip-container" onclick="window.open('{{ player.opgg_url }}', '_blank')">
-                            <div class="card-title">{{ player.riot_id }}
+                            <div class="card-title">
+                                <span class="player-riot-id">{{ player.riot_id }}</span>
                                 {% if player.main_position == 'SUP' %}<span class="pos-badge main-pos">Main</span>
                                 {% elif player.sub_position == 'SUP' %}<span class="pos-badge sub-pos">Sub</span>
                                 {% else %}<span class="pos-badge fill-pos">Fill</span>{% endif %}
                             </div>
                             <div class="card-sub">@{{ player.discord_username|default:"-" }}</div>
+                            
+                            <div class="tooltip-content">
+                                <div><span>그룹</span> <strong>{{ tier_num }} Tier</strong></div>
+                                <div><span>최고 티어</span> <strong>{{ player.highest_rank|default:"-" }}</strong></div>
+                                <div><span>현재 티어</span> <strong>{{ player.solo_rank|default:"-" }}</strong></div>
+                                {% if player.note %}
+                                <div class="player-note"><span>참고</span> <strong>{{ player.note }}</strong></div>
+                                {% endif %}
+                            </div>
                         </div>
                         {% endif %}
                     {% endfor %}
                 {% endfor %}
             </div>
         </div>
-
     </div>
 
     <h2 id="schedule">[ OFFICIAL SCHEDULE ]</h2>

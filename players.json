@@ -9,7 +9,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Diamond 2", 
-      "solo_rank": "diamond 4", 
+      "solo_rank": "Diamond 3", 
       "main_position": "ADC", 
       "sub_position": "TOP"
     }
@@ -23,8 +23,8 @@
       "discord_user_id": "616697671649984513", 
       "tier": 1, 
       "team": null, 
-      "highest_rank": "Diamond 1", 
-      "solo_rank": "Diamond 2", 
+      "highest_rank": "Master 1", 
+      "solo_rank": "Master 1", 
       "main_position": "ADC", 
       "sub_position": "SUP" 
     }
@@ -39,7 +39,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 2", 
+      "solo_rank": "Emerald 1", 
       "main_position": "JGL", 
       "sub_position": "TOP",
       "note": "미드, 원딜 가능" 
@@ -69,7 +69,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 1", 
+      "solo_rank": "Emerald 3", 
       "main_position": "ADC", 
       "sub_position": "SUP" 
     }
@@ -84,7 +84,7 @@
       "discord_user_id": "359482747070185472", 
       "tier": 2, "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 4", 
+      "solo_rank": "Emerald 2", 
       "main_position": "TOP", 
       "sub_position": "SUP",
       "note": "미드, 원딜 가능"  
@@ -115,7 +115,7 @@
       "tier": 2, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Diamond 4", 
+      "solo_rank": "Emerald 2", 
       "main_position": "MID", 
       "sub_position": "TOP" 
     }

@@ -768,22 +768,30 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
         embed.set_footer(text="* STRICTLY FOR PERSONAL SATISFACTION")
 
     elif notice_type == "bot_guide":
+        embed = discord.Embed(
+            title="[ SYSTEM GUIDE: BOT COMMANDS ]",
+            description=(
+                "본 대회의 팀 로스터 등록 및 경기 결과 제출은 **100% 봇 명령어를 통해 자동화**되어 있습니다.\n"
+                "시스템 사용법에 대한 문의나 예기치 못한 버그 발생 시, 즉시 관리자(<@286566325231288323>)를 호출해 주십시오."
+            ),
+            color=embed_color
+        )
         embed.add_field(
-            name="[ SYSTEM GUIDE: TEAM SIGN-UP (팀 가입) ]", 
+            name="[ 1. TEAM SIGN-UP (팀 가입) ]", 
             value=(
                 "📍 **채널:** <#1477537891214426262> (이동 클릭)\n"
                 "⌨️ **명령어:** `/팀가입` 입력 후 자동완성 리스트에서 선택\n"
                 "- 이적 시장 마감일 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n"
-                "- 팀당 정원은 최대 5명이며, 5명 초과 시 시스템에 의해 가입이 차단됩니다."
+                "- 팀당 정원은 최대 5명이며, 정원 초과 시 시스템에 의해 가입이 차단됩니다."
             ), 
             inline=False
         )
         embed.add_field(
-            name="[ SYSTEM GUIDE: RESULT SUBMISSION (결과 제출) ]", 
+            name="[ 2. RESULT SUBMISSION (결과 제출) ]", 
             value=(
                 "📍 **채널:** <#1477537918817013760> (이동 클릭)\n"
                 "⌨️ **명령어:** `/결과제출` (승리 팀, 경기 시간, **승리 화면 스크린샷** 첨부 필수)\n"
-                "🚨 **[다전제 주의사항]** 세미파이널(Bo3)과 결승전(Bo5)은 시리즈 종료 후가 아닌, **'매 세트가 종료될 때마다'** 1번씩 결과를 제출해야 시스템이 스코어를 누적합니다."
+                "🚨 **[다전제 룰]** 세미파이널(Bo3)과 결승전(Bo5)은 시리즈 종료 후가 아닌, **'매 세트가 종료될 때마다'** 결과를 제출해야 스코어가 정상적으로 누적됩니다."
             ), 
             inline=False
         )
@@ -794,7 +802,6 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             description="원활한 대회 진행을 위한 공식 시스템 규정입니다. 미숙지로 인한 불이익은 전적으로 본인에게 있습니다.",
             color=embed_color
         )
-        # ✨ 새로 추가된 시스템 진행 방식 룰
         embed.add_field(
             name="01. TOURNAMENT BRACKET | 대진표 및 진출 시스템", 
             value=(
@@ -865,6 +872,7 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             description="대회의 모든 데이터는 아래 웹사이트에서 실시간으로 동기화됩니다.\n질문하기 전에 웹사이트를 먼저 확인하십시오.",
             color=embed_color
         )
+        embed.set_image(url="https://i.imgur.com/LEqBZ9y.png")
         embed.add_field(name="[ LINK ]", value="https://taektube.lol/", inline=False) 
         embed.add_field(
             name="[ SYSTEM TRACKING ]", 
@@ -878,7 +886,6 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             description="선수 등록을 마친 참가자는 아래 명령어를 통해 팀에 합류하십시오.",
             color=embed_color
         )
-        embed.set_image(url=TEAM_SIGNUP_IMG_URL)
         embed.add_field(
             name="[ 명령어 사용법 ]",
             value="💬 채팅창에 `/팀가입`을 입력하고, 자동완성되는 리스트에서 원하는 팀을 선택하세요.",
@@ -896,7 +903,6 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             description="경기가 종료되면 승리 팀은 즉시 시스템에 결과를 보고해야 합니다.",
             color=embed_color
         )
-        embed.set_image(url=SUBMIT_RESULT_IMG_URL)
         embed.add_field(
             name="[ 명령어 사용법 ]",
             value="💬 지정된 결과 제출 채널에서 `/결과제출` 명령어를 사용하세요.\n승리한 팀 이름, 경기 시간(MM:SS), 그리고 **승리 화면 스크린샷** 첨부가 필수입니다.",
