@@ -61,9 +61,15 @@ class ApprovalView(discord.ui.View):
 
     @discord.ui.button(label="승인 (Approve)", style=discord.ButtonStyle.success)
     async def approve_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        @sync_to_async
+        # 🚨 1. 3초 타임아웃 킬러: 디스코드에게 "봇이 생각 중입니다..." 신호 보내기
+        await interaction.response.defer(ephemeral=True)
+
         @sync_to_async
         def update_match():
+            # 🚨 2. 잠자는 DB 깨우기 (무한 로딩 및 서버 에러 방지 마법의 코드)
+            from django.db import close_old_connections
+            close_old_connections()
+
             from tournament.models import Match, Team
             from tournament.views import get_standings 
 
@@ -82,25 +88,23 @@ class ApprovalView(discord.ui.View):
                 # 2. 다전제 룰에 따라 '시리즈가 최종 종료' 되었는지 확인
                 is_series_finished = False
                 if match.stage in ['GROUP', 'DEATHMATCH']:
-                    is_series_finished = True # 단판승부(Bo1)는 1승만 하면 바로 끝!
+                    is_series_finished = True 
                 elif match.stage == 'SEMI':
-                    if match.team_a_score >= 2 or match.team_b_score >= 2: # Bo3 (2선승제)
+                    if match.team_a_score >= 2 or match.team_b_score >= 2: # Bo3
                         is_series_finished = True
                 elif match.stage == 'FINAL':
-                    if match.team_a_score >= 3 or match.team_b_score >= 3: # Bo5 (3선승제)
+                    if match.team_a_score >= 3 or match.team_b_score >= 3: # Bo5
                         is_series_finished = True
 
-                # 방금 끝난 세트의 스크린샷과 시간 업데이트
                 match.screenshot_url = self.image_url
                 match.game_duration = self.duration
 
-                # 3. [ 시리즈 완전 종료 시 ] -> 최종 승자 확정 및 다음 라운드 진출 로직
+                # 3. [ 시리즈 완전 종료 시 ]
                 if is_series_finished:
                     match.winner = winner
                     match.status = 'COMPLETED'
                     match.is_completed = True
                     
-                    # 최종 승패 카운트 적용
                     winner.wins += 1
                     winner.save()
                     loser = match.team_b if match.team_a == winner else match.team_a
@@ -147,52 +151,52 @@ class ApprovalView(discord.ui.View):
                                 Match.objects.create(match_number=11, stage='FINAL', team_a=sf1_match.winner, team_b=sf2_match.winner, is_completed=False)
                                 system_messages.append("🏆 **[ GRAND FINAL 대진 확정 ]** 결승전 매치업이 생성되었습니다!")
 
-                # 4. [ 세트 종료 (아직 시리즈 진행 중) ] -> 스코어만 저장
+                # 4. [ 세트 종료 (진행 중) ]
                 else:
-                    match.save() # 스코어만 올리고 is_completed는 여전히 False 상태 유지!
+                    match.save()
                     system_messages.append(f"🔄 **[ SET SCORE UPDATED ]** 현재 스코어: **{match.team_a.name} ({match.team_a_score})** vs **({match.team_b_score}) {match.team_b.name}**")
 
             return winner.name if winner else "알 수 없음", system_messages
             
-        # 비동기 환경에서 함수 실행 후 결과값 받아오기
+        # 함수 실행
         winner_name, sys_msgs = await update_match()
         
-        # 결과를 제출했던 원래 채널에 메시지 전송
         original_channel = bot.get_channel(self.original_channel_id)
         if original_channel:
             msg = f"📢 <@{self.submitter_id}>님이 제출하신 **매치 #{self.match_num}** 결과가 승인되었습니다! ({winner_name} 승리)"
-            # 자동 생성된 시스템 메시지가 있다면 덧붙여서 전송
             if sys_msgs:
                 msg += "\n\n" + "\n".join(sys_msgs)
             await original_channel.send(msg)
         
-        # 관리자 채널의 버튼 비활성화
+        # 버튼 비활성화 UI 업데이트
         for child in self.children:
             child.disabled = True
         await interaction.message.edit(view=self)
         
-        # 관리자에게만 보이는 임시 알림
-        await interaction.response.send_message("✅ 승인 처리 및 다음 스테이지 갱신 완료!", ephemeral=True)
+        # 🚨 defer()를 썼기 때문에 followup.send()로 완료 메시지 쏘기!
+        await interaction.followup.send("✅ 승인 처리 및 다음 스테이지 갱신 완료!", ephemeral=True)
         self.stop()
 
     @discord.ui.button(label="거절 (Reject)", style=discord.ButtonStyle.danger)
     async def reject_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 거절 버튼도 터지지 않게 defer 추가
+        await interaction.response.defer(ephemeral=True)
+
         original_channel = bot.get_channel(self.original_channel_id)
         if original_channel:
             await original_channel.send(f"❌ <@{self.submitter_id}>님이 제출하신 **매치 #{self.match_num}** 결과가 관리자에 의해 거절되었습니다.")
         
-        # 버튼 비활성화
         for child in self.children:
             child.disabled = True
         await interaction.message.edit(view=self)
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"❌ 매치 #{self.match_id} 결과가 관리자에 의해 **거절**되었습니다.\n"
             f"제출된 스크린샷과 승리팀(`{self.winner_team}`) 정보가 일치하는지 확인 후 다시 제출해 주세요.", 
             ephemeral=False
         )
         self.stop()
-
+        
 # ==========================================
 # 팀 이름 자동완성 함수
 # ==========================================
