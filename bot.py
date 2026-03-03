@@ -38,6 +38,7 @@ def keep_alive():
 # 2. 봇 기본 설정
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # 3. 봇이 켜졌을 때 슬래시 명령어 동기화!
@@ -196,6 +197,46 @@ class ApprovalView(discord.ui.View):
             ephemeral=False
         )
         self.stop()
+
+# ==========================================
+# [ 이벤트 ] 유저가 서버에 입장했을 때 (자동 닉네임 변경)
+# ==========================================
+@bot.event
+async def on_member_join(member):
+    @sync_to_async
+    def get_player_riot_id(discord_id):
+        # 🚨 DB 연결 끊김 방지
+        from django.db import close_old_connections
+        close_old_connections()
+        
+        from tournament.models import Player
+        try:
+            # DB에서 방금 들어온 유저의 디스코드 ID로 검색
+            player = Player.objects.get(discord_user_id=str(discord_id))
+            return player.riot_id
+        except Player.DoesNotExist:
+            return None
+
+    # 함수 실행해서 롤 닉네임 가져오기
+    riot_id = await get_player_riot_id(member.id)
+
+    if riot_id:
+        # 디스코드 닉네임 최대 길이는 32자이므로 안전하게 자르기
+        new_nick = riot_id[:32]
+        
+        try:
+            await member.edit(nick=new_nick)
+            print(f"✅ [자동 닉네임 변경] {member.name} -> {new_nick}")
+            
+            # (선택) 특정 채널에 알림을 보내고 싶다면 아래 주석 해제 후 채널 ID 입력
+            # channel = bot.get_channel(여기에_알림_보낼_채널_ID)
+            # if channel:
+            #     await channel.send(f"👋 <@{member.id}>님의 별명이 `{new_nick}`(으)로 자동 변경되었습니다.")
+                
+        except discord.Forbidden:
+            print(f"❌ [권한 에러] 봇의 권한이 부족하여 {member.name}의 닉네임을 바꿀 수 없습니다.")
+        except discord.HTTPException as e:
+            print(f"❌ [API 에러] 닉네임 변경 실패: {e}")
 
 # ==========================================
 # 팀 이름 자동완성 함수
