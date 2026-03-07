@@ -246,15 +246,15 @@ async def on_member_join(member):
             embed.description += f"\n*(시스템에 의해 별명이 `{new_nick}`으로 자동 변경되었습니다.)*"
 
         embed.add_field(
-            name="📚 [ STEP 1 ] 필독 채널 숙지",
+            name="[ STEP 1 ] 필독 채널 숙지",
             value=(
                 f"원활한 대회 진행을 위해 아래 세 채널을 반드시 정독해 주세요.\n"
-                f"👉 <#{NOTICE_CHANNEL_ID}> | <#{RULES_CHANNEL_ID}> | <#{WEB_CHANNEL_ID}>"
+                f"<#{NOTICE_CHANNEL_ID}> | <#{RULES_CHANNEL_ID}> | <#{WEB_CHANNEL_ID}>"
             ),
             inline=False
         )
         embed.add_field(
-            name="🎤 [ STEP 2 ] 자기소개 작성",
+            name="[ STEP 2 ] 자기소개 작성",
             value=(
                 f"다른 참가자들에게 본인을 어필해 보세요!\n"
                 f"👉 <#{INTRO_CHANNEL_ID}> 채널로 이동하여 `/자기소개` 명령어를 입력해 주세요."
@@ -696,7 +696,7 @@ async def generate_bracket_slash(interaction: discord.Interaction, start_hour: i
                 stage='GROUP',
                 team_a=blue_a,
                 team_b=red_a,
-                scheduled_time=time_str, # ✨ 지정된 시간 저장!
+                scheduled_time=time_str,
                 is_completed=False
             )
             created_matches.append({
@@ -711,7 +711,7 @@ async def generate_bracket_slash(interaction: discord.Interaction, start_hour: i
                 stage='GROUP',
                 team_a=blue_b,
                 team_b=red_b,
-                scheduled_time=time_str, # ✨ 같은 시간 저장!
+                scheduled_time=time_str,
                 is_completed=False
             )
             created_matches.append({

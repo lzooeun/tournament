@@ -3,6 +3,21 @@
     "model": "tournament.player",
     "pk": 1,
     "fields": { 
+      "riot_id": "WOOJOO#야무진", 
+      "discord_username": "nicecone", 
+      "discord_user_id": "616697671649984513", 
+      "tier": 1, 
+      "team": null, 
+      "highest_rank": "Master 1", 
+      "solo_rank": "Diamond 1", 
+      "main_position": "ADC", 
+      "sub_position": "SUP" 
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 2,
+    "fields": { 
       "riot_id": "zl 존태 원#악세짱짱맨", 
       "discord_username": "taewonh", 
       "discord_user_id": "315225019787640832", 
@@ -12,21 +27,6 @@
       "solo_rank": "Diamond 3", 
       "main_position": "ADC", 
       "sub_position": "TOP"
-    }
-  },
-  {
-    "model": "tournament.player",
-    "pk": 2,
-    "fields": { 
-      "riot_id": "WOOJOO#야무진", 
-      "discord_username": "nicecone", 
-      "discord_user_id": "616697671649984513", 
-      "tier": 1, 
-      "team": null, 
-      "highest_rank": "Master 1", 
-      "solo_rank": "Master 1", 
-      "main_position": "ADC", 
-      "sub_position": "SUP" 
     }
   },
   {
@@ -50,8 +50,8 @@
     "pk": 4,
     "fields": { 
       "riot_id": "Austin04#0209", 
-      "discord_username": "#7010", 
-      "discord_user_id": "TEMP_04", 
+      "discord_username": "u4e0bu4e8c", 
+      "discord_user_id": "454942096852254731", 
       "tier": 1, "team": null, 
       "highest_rank": "Diamond 3", 
       "solo_rank": null, 
@@ -204,7 +204,7 @@
     "fields": { 
       "riot_id": "MontrealTacoyaki#NA2", 
       "discord_username": "gihyunjia", 
-      "discord_user_id": "TEMP_14", 
+      "discord_user_id": "523798470281134080", 
       "tier": 4, 
       "team": null, 
       "highest_rank": "Platinum 2", 
@@ -221,7 +221,7 @@
       "discord_username": "j58743", 
       "discord_user_id": "395730611077382174", 
       "tier": 4, "team": null, 
-      "highest_rank": "Platinum", 
+      "highest_rank": "Platinum 2", 
       "solo_rank": null, 
       "main_position": "MID", 
       "sub_position": "TOP" 
@@ -384,7 +384,7 @@
     "fields": {
       "riot_id": "그냥랄룽#0616", 
       "discord_username": "geonung4254", 
-      "discord_user_id": "TEMP_26",
+      "discord_user_id": "893297086794186753",
       "tier": 3, 
       "team": null, 
       "highest_rank": "Emerald 1", 
@@ -392,6 +392,37 @@
       "main_position": "MID", 
       "sub_position": "TOP",
       "note": "정글 가능"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 27,
+    "fields": {
+      "riot_id": "林載益#1219", 
+      "discord_username": "jaeik_lim", 
+      "discord_user_id": "624149941178204161",
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Platinum 4", 
+      "solo_rank": null, 
+      "main_position": "JGL", 
+      "sub_position": "TOP",
+      "note": "서폿 가능"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 28,
+    "fields": {
+      "riot_id": "Strawberry Milks#딸기우유", 
+      "discord_username": "edoori", 
+      "discord_user_id": "TEMP_28",
+      "tier": 4, 
+      "team": null, 
+      "highest_rank": "Emerald 2", 
+      "solo_rank": "Emerald 3", 
+      "main_position": "TOP", 
+      "sub_position": "MID"
     }
   }
 ]
