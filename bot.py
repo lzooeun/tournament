@@ -405,7 +405,7 @@ async def cancel_result_slash(interaction: discord.Interaction, match_number: in
     await interaction.followup.send(result_msg)
 
 # ==========================================
-# /팀가입 슬래시 명령어 (탕치기 기능)
+# /팀가입 슬래시 명령어 (탕치기 기능 + 빈 팀 자동 삭제)
 # ==========================================
 @bot.tree.command(name="팀가입", description="원하는 팀에 가입하거나 이동합니다.")
 @app_commands.describe(team_name="가입할 팀을 선택하세요")
@@ -420,34 +420,35 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.response.send_message("❌ 이적 기간이 마감되어 더 이상 팀을 이동할 수 없습니다.", ephemeral=True)
         return
     
-    # 명령어를 친 사람의 디스코드 고유 ID (숫자 형태의 문자열)
     user_id = str(interaction.user.id)
     
     @sync_to_async
     def process_join_team(d_id, t_name):
+        from tournament.models import Player, Team
         try:
-            # 1. DB에서 이 디스코드 ID를 가진 플레이어 찾기
             player = Player.objects.get(discord_user_id=d_id)
-            
-            # 2. 가입하려는 팀 찾기
             target_team = Team.objects.get(name=t_name)
             
-            # 3. 팀 인원수 체크 (5명이 꽉 찼는데 들어오려는 경우 차단)
             if target_team.players.count() >= 5 and player.team != target_team:
                 return False, f"❌ **{target_team.name}** 팀은 이미 5명이 꽉 찼습니다! 다른 팀을 알아보세요."
             
-            # 4. 이미 해당 팀인 경우
             if player.team == target_team:
                 return False, f"⚠️ 이미 **{target_team.name}** 팀에 소속되어 있습니다."
             
-            # 5. 이전 팀 기록 (알림 메시지용)
-            old_team_name = player.team.name if player.team else "무소속"
+            old_team = player.team
+            old_team_name = old_team.name if old_team else "무소속"
             
-            # 6. 팀 변경 및 DB 저장
+            # 1. 팀 변경 및 DB 저장
             player.team = target_team
             player.save()
             
-            return True, (player.riot_id, old_team_name, target_team.name)
+            # 2. 🚨 [ 핵심 ] 기존에 있던 팀이 0명이 되었는지 확인하고 폭파!
+            deleted_team_name = None
+            if old_team and old_team.players.count() == 0:
+                deleted_team_name = old_team.name
+                old_team.delete()
+            
+            return True, (player.riot_id, old_team_name, target_team.name, deleted_team_name)
             
         except Player.DoesNotExist:
             return False, "❌ DB에 등록된 참가자가 아닙니다. 주최자에게 디스코드 ID 등록을 요청하세요."
@@ -456,25 +457,31 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         except Exception as e:
             return False, f"❌ 시스템 오류 발생: {str(e)}"
 
-    # 처리 시간 대기
     await interaction.response.defer()
     
     success, result = await process_join_team(user_id, team_name)
     
     if success:
-        riot_id, old_team, new_team = result
+        riot_id, old_team, new_team, deleted_team = result
         
-        # 성공 시 예쁜 임베드 메시지로 채널에 중계
-        embed = discord.Embed(title="팀 선택 완료!", color=0x2ecc71) # 눈에 띄는 초록색
+        embed = discord.Embed(title="🤝 팀 이적 완료!", color=0x2ecc71)
         embed.description = f"**{riot_id}** 님이 팀을 이동했습니다."
         embed.add_field(name="이전 소속", value=old_team, inline=True)
-        embed.add_field(name="➡️", value=" ", inline=True) # 화살표 역할로 간격 띄우기
+        embed.add_field(name="➡️", value=" ", inline=True)
         embed.add_field(name="새로운 소속", value=f"**{new_team}**", inline=True)
-        embed.set_footer(text="웹사이트의 Team List에 즉각 반영되었습니다. 새로고침 해보세요!")
+        
+        # 💥 폭파된 팀이 있다면 추가 알림!
+        if deleted_team:
+            embed.add_field(
+                name="💥 팀 해체 알림", 
+                value=f"**{deleted_team}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다. (새로운 팀 창단 가능)", 
+                inline=False
+            )
+            
+        embed.set_footer(text="웹사이트의 Team List에 즉각 반영되었습니다.")
         
         await interaction.followup.send(embed=embed)
     else:
-        # 실패 시 에러 메시지 (ephemeral=True로 설정하면 본인에게만 메시지가 보임)
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
@@ -705,17 +712,15 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
-# /팀원추방 슬래시 명령어 (이적 시장 매운맛)
+# /팀원추방 슬래시 명령어 (방출 + 빈 팀 자동 삭제)
 # ==========================================
-@bot.tree.command(name="팀원추방", description="같은 팀에 속한 멤버를 팀에서 방출(FA)시킵니다. (이적 시장 기간 한정)")
+@bot.tree.command(name="팀원추방", description="같은 팀에 속한 멤버를 방출합니다. (이적 시장 기간 한정)")
 @app_commands.describe(target_user="방출할 팀원을 선택하세요 (@멘션 또는 유저 선택)")
 async def kick_teammate_slash(interaction: discord.Interaction, target_user: discord.Member):
-    # 팀 가입 채널에서만 사용 가능
     if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
         await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
         return
 
-    # 팀 확정 이후 사용 차단
     global TEAM_JOIN_LOCKED
     if TEAM_JOIN_LOCKED:
         await interaction.response.send_message("❌ 이적 시장이 종료되어 더 이상 팀원을 방출할 수 없습니다.", ephemeral=True)
@@ -728,55 +733,63 @@ async def kick_teammate_slash(interaction: discord.Interaction, target_user: dis
     def process_kick(c_id, t_id):
         from tournament.models import Player
         try:
-            # 1. 킥을 시도하는 사람과 당하는 사람의 DB 정보 가져오기
             caller = Player.objects.get(discord_user_id=c_id)
             target = Player.objects.get(discord_user_id=t_id)
             
-            # 2. 킥을 시도하는 사람이 무소속일 경우 차단
             if not caller.team:
                 return False, "❌ 본인이 소속된 팀이 없어 이 명령어를 사용할 수 없습니다."
             
-            # 3. 자기 자신을 킥하려는 경우 (스스로 나갈 거면 그냥 다른 팀에 /팀가입 하면 됨)
             if c_id == t_id:
                 return False, "❌ 자기 자신을 방출할 수 없습니다. 다른 팀으로 가려면 `/팀가입`을 이용하세요."
             
-            # 4. 킥 당하는 사람이 같은 팀이 아닐 경우 차단
             if caller.team != target.team:
                 return False, f"❌ <@{t_id}> 님은 **{caller.team.name}** 팀 소속이 아닙니다!"
             
-            team_name = caller.team.name
+            team = caller.team
+            team_name = team.name
             target_riot_id = target.riot_id
             
-            # 5. 방출 실행 (DB에서 팀 정보를 None으로 초기화)
+            # 1. 방출 실행
             target.team = None
             target.save()
             
-            return True, (target_riot_id, team_name)
+            # 2. 🚨 [ 핵심 ] 방출하고 나서 팀이 0명이 되었는지 확인하고 폭파!
+            deleted_team_name = None
+            if team.players.count() == 0:
+                deleted_team_name = team.name
+                team.delete()
+            
+            return True, (target_riot_id, team_name, deleted_team_name)
             
         except Player.DoesNotExist:
             return False, "❌ DB에 등록되지 않은 참가자가 포함되어 있습니다."
         except Exception as e:
             return False, f"❌ 시스템 오류 발생: {str(e)}"
 
-    # 봇이 생각할 시간 벌기
     await interaction.response.defer()
     
     success, result = await process_kick(caller_id, target_id)
     
     if success:
-        target_riot_id, team_name = result
+        target_riot_id, team_name, deleted_team = result
         
-        # 매운맛 방출 임베드 생성
-        embed = discord.Embed(title="🚨 팀원 방출 (FA 전환)", color=0xE74C3C) # 강렬한 빨간색
+        embed = discord.Embed(title="🚨 팀원 방출 (FA 전환)", color=0xE74C3C)
         embed.description = f"**{target_riot_id}** 님이 **{team_name}** 팀에서 방출되었습니다."
-        embed.set_footer(text="방출된 선수는 다시 무소속 신분이 되며 웹사이트 명단에서 즉시 제외됩니다.")
         
-        # 쫓겨난 유저에게 알림이 가도록 멘션 포함해서 전송!
+        # 💥 1명 남은 팀장이 다른 팀원을 다 쫓아내고, 마지막으로 남은 한 명마저 쫓겨나서 팀이 비어버릴 경우 대비
+        if deleted_team:
+            embed.add_field(
+                name="💥 팀 해체 알림", 
+                value=f"해당 방출로 인해 **{deleted_team}** 팀의 인원이 0명이 되어 자동 해체(삭제)되었습니다.", 
+                inline=False
+            )
+            
+        embed.set_footer(text="방출된 선수는 다시 무소속 신분이 되며 웹사이트 명단에서 제외됩니다.")
+        
         await interaction.followup.send(content=f"<@{target_id}>", embed=embed)
     else:
-        # 에러 메시지는 본인에게만 조용히 보여주기
         await interaction.followup.send(result, ephemeral=True)
-
+        
 # ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용) - 스케줄링 포함
 # ==========================================
