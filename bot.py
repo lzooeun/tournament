@@ -630,6 +630,81 @@ async def self_introduction(
     await interaction.response.send_message(embed=embed)
 
 # ==========================================
+# /팀생성 슬래시 명령어 (참가자 직접 창단)
+# ==========================================
+@bot.tree.command(name="팀생성", description="새로운 팀을 창단하고 해당 팀의 첫 번째 멤버로 등록됩니다.")
+@app_commands.describe(team_name="창단할 팀의 이름을 입력하세요 (최대 15자)")
+async def create_team_slash(interaction: discord.Interaction, team_name: str):
+    # 팀 가입 채널과 동일한 곳에서 사용하도록 제한
+    if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    global TEAM_JOIN_LOCKED
+    if TEAM_JOIN_LOCKED:
+        await interaction.response.send_message("❌ 이적 및 창단 기간이 마감되어 새로운 팀을 만들 수 없습니다.", ephemeral=True)
+        return
+
+    # 글자 수 제한 (디스코드 역할 이름 길이 제한 등 UI/UX 고려)
+    if len(team_name.strip()) > 15:
+        await interaction.response.send_message("❌ 팀 이름은 공백 포함 최대 15자까지만 가능합니다.", ephemeral=True)
+        return
+
+    user_id = str(interaction.user.id)
+
+    @sync_to_async
+    def process_create_team(d_id, t_name):
+        from tournament.models import Player, Team
+        try:
+            # 1. 디스코드 ID로 참가자 확인
+            player = Player.objects.get(discord_user_id=d_id)
+            
+            # 2. 팀 이름 중복 검사 (대소문자 무시하고 일치하는지 확인)
+            if Team.objects.filter(name__iexact=t_name).exists():
+                return False, f"❌ **{t_name}** (이)라는 이름의 팀이 이미 존재합니다. 다른 이름을 골라주세요."
+            
+            # 3. 최대 팀 개수 제한 (대회 규모 6팀으로 제한)
+            if Team.objects.count() >= 6:
+                return False, "❌ 이미 6개의 팀이 모두 창단되었습니다! 기존에 만들어진 팀에 `/팀가입` 해주세요."
+
+            # 4. 팀 생성 및 유저 자동 할당
+            new_team = Team.objects.create(name=t_name)
+            player.team = new_team
+            player.save()
+            
+            return True, (player.riot_id, new_team.name)
+            
+        except Player.DoesNotExist:
+            return False, "❌ DB에 등록된 참가자가 아닙니다. 주최자에게 먼저 등록을 요청하세요."
+        except Exception as e:
+            return False, f"❌ 시스템 오류 발생: {str(e)}"
+
+    # 봇이 생각할 시간 벌기
+    await interaction.response.defer()
+    
+    # DB 처리 함수 실행
+    success, result = await process_create_team(user_id, team_name.strip())
+    
+    if success:
+        riot_id, new_team_name = result
+        
+        # 빰빠빰! 성공 임베드 메시지
+        embed = discord.Embed(title="🎊 신규 팀 창단 완료!", color=0xF1C40F) # 빛나는 황금색
+        embed.description = f"**{riot_id}** 님이 새로운 팀을 창단했습니다!"
+        embed.add_field(name="[ 팀 이름 ]", value=f"**{new_team_name}**", inline=False)
+        embed.add_field(
+            name="[ 안내 ]", 
+            value=f"이제 다른 참가자들이 `/팀가입` 명령어의 자동완성 리스트에서 **{new_team_name}**을 찾아 가입할 수 있습니다.", 
+            inline=False
+        )
+        embed.set_footer(text="팀장님, 멋진 로스터를 꾸려 우승을 차지해 보세요!")
+        
+        await interaction.followup.send(embed=embed)
+    else:
+        # 실패 시 에러 메시지 (본인에게만 보임)
+        await interaction.followup.send(result, ephemeral=True)
+
+# ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용) - 스케줄링 포함
 # ==========================================
 @bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 추첨 및 대진표를 생성합니다. (시간 자동 배정)")
@@ -893,12 +968,13 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             color=embed_color
         )
         embed.add_field(
-            name="[ 1. TEAM SIGN-UP (팀 가입) ]", 
+            name="[ 1. TEAM CREATION & SIGN-UP (팀 창단 및 가입) ]", 
             value=(
                 "📍 **채널:** <#1477537891214426262> (이동 클릭)\n"
-                "⌨️ **명령어:** `/팀가입` 입력 후 자동완성 리스트에서 선택\n"
+                "🆕 **팀 창단:** `/팀생성` (원하는 팀 이름 입력, 선착순 최대 6팀 제한)\n"
+                "🤝 **팀 가입:** `/팀가입` (자동완성 리스트에서 기존 팀 선택)\n"
                 "- 이적 시장 마감일 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n"
-                "- 팀당 정원은 최대 5명이며, 정원 초과 시 시스템에 의해 가입이 차단됩니다."
+                "- 팀당 정원은 최대 5명이며, 정원 초과 시 가입이 차단됩니다."
             ), 
             inline=False
         )
@@ -998,18 +1074,23 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
 
     elif notice_type == "guide_join":
         embed = discord.Embed(
-            title="[ SYSTEM GUIDE: TEAM SIGN-UP ]",
-            description="선수 등록을 마친 참가자는 아래 명령어를 통해 팀에 합류하십시오.",
+            title="[ SYSTEM GUIDE: TEAM CREATION & SIGN-UP ]",
+            description="참가자는 직접 새로운 팀을 창단하거나 기존 팀에 자유롭게 합류할 수 있습니다.",
             color=embed_color
         )
         embed.add_field(
-            name="[ 명령어 사용법 ]",
-            value="💬 채팅창에 `/팀가입`을 입력하고, 자동완성되는 리스트에서 원하는 팀을 선택하세요.",
+            name="[ 1. 새로운 팀 창단하기 ]",
+            value="💬 채팅창에 `/팀생성 [원하는 팀 이름]`을 입력하세요.\n- 본인이 해당 팀의 첫 번째 멤버(팀장)로 자동 등록됩니다.\n- 대회 규정상 총 **6개 팀**까지만 창단이 가능합니다.",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 2. 기존 팀 가입 및 이적 ]",
+            value="💬 채팅창에 `/팀가입`을 입력하고, 리스트에서 원하는 팀을 선택하세요.\n- 선택한 팀의 정원(5명)이 꽉 차지 않았다면 즉시 합류됩니다.",
             inline=False
         )
         embed.add_field(
             name="[ 유의사항 ]",
-            value="- 한 팀의 정원은 최대 5명이며, 초과 시 가입이 차단됩니다.\n- 이적 시장 마감일(03.21) 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n- 마감 이후에는 팀이 고정되며 각 팀별 프라이빗 전략 채널이 오픈됩니다.",
+            value="- 이적 시장 마감일(03.21) 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n- 마감 이후에는 로스터가 완전히 고정되며, 각 팀별 프라이빗 전략 채널이 오픈됩니다.",
             inline=False
         )
 
