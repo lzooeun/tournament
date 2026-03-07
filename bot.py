@@ -705,6 +705,79 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
+# /팀원추방 슬래시 명령어 (이적 시장 매운맛)
+# ==========================================
+@bot.tree.command(name="팀원추방", description="같은 팀에 속한 멤버를 팀에서 방출(FA)시킵니다. (이적 시장 기간 한정)")
+@app_commands.describe(target_user="방출할 팀원을 선택하세요 (@멘션 또는 유저 선택)")
+async def kick_teammate_slash(interaction: discord.Interaction, target_user: discord.Member):
+    # 팀 가입 채널에서만 사용 가능
+    if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    # 팀 확정 이후 사용 차단
+    global TEAM_JOIN_LOCKED
+    if TEAM_JOIN_LOCKED:
+        await interaction.response.send_message("❌ 이적 시장이 종료되어 더 이상 팀원을 방출할 수 없습니다.", ephemeral=True)
+        return
+
+    caller_id = str(interaction.user.id)
+    target_id = str(target_user.id)
+
+    @sync_to_async
+    def process_kick(c_id, t_id):
+        from tournament.models import Player
+        try:
+            # 1. 킥을 시도하는 사람과 당하는 사람의 DB 정보 가져오기
+            caller = Player.objects.get(discord_user_id=c_id)
+            target = Player.objects.get(discord_user_id=t_id)
+            
+            # 2. 킥을 시도하는 사람이 무소속일 경우 차단
+            if not caller.team:
+                return False, "❌ 본인이 소속된 팀이 없어 이 명령어를 사용할 수 없습니다."
+            
+            # 3. 자기 자신을 킥하려는 경우 (스스로 나갈 거면 그냥 다른 팀에 /팀가입 하면 됨)
+            if c_id == t_id:
+                return False, "❌ 자기 자신을 방출할 수 없습니다. 다른 팀으로 가려면 `/팀가입`을 이용하세요."
+            
+            # 4. 킥 당하는 사람이 같은 팀이 아닐 경우 차단
+            if caller.team != target.team:
+                return False, f"❌ <@{t_id}> 님은 **{caller.team.name}** 팀 소속이 아닙니다!"
+            
+            team_name = caller.team.name
+            target_riot_id = target.riot_id
+            
+            # 5. 방출 실행 (DB에서 팀 정보를 None으로 초기화)
+            target.team = None
+            target.save()
+            
+            return True, (target_riot_id, team_name)
+            
+        except Player.DoesNotExist:
+            return False, "❌ DB에 등록되지 않은 참가자가 포함되어 있습니다."
+        except Exception as e:
+            return False, f"❌ 시스템 오류 발생: {str(e)}"
+
+    # 봇이 생각할 시간 벌기
+    await interaction.response.defer()
+    
+    success, result = await process_kick(caller_id, target_id)
+    
+    if success:
+        target_riot_id, team_name = result
+        
+        # 매운맛 방출 임베드 생성
+        embed = discord.Embed(title="🚨 팀원 방출 (FA 전환)", color=0xE74C3C) # 강렬한 빨간색
+        embed.description = f"**{target_riot_id}** 님이 **{team_name}** 팀에서 방출되었습니다."
+        embed.set_footer(text="방출된 선수는 다시 무소속 신분이 되며 웹사이트 명단에서 즉시 제외됩니다.")
+        
+        # 쫓겨난 유저에게 알림이 가도록 멘션 포함해서 전송!
+        await interaction.followup.send(content=f"<@{target_id}>", embed=embed)
+    else:
+        # 에러 메시지는 본인에게만 조용히 보여주기
+        await interaction.followup.send(result, ephemeral=True)
+
+# ==========================================
 # /대진표생성 슬래시 명령어 (관리자 전용) - 스케줄링 포함
 # ==========================================
 @bot.tree.command(name="대진표생성", description="[관리자 전용] 6팀 조별 리그 추첨 및 대진표를 생성합니다. (시간 자동 배정)")
@@ -948,7 +1021,7 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             name="[ OFFICIAL SCHEDULE ]", 
             value=(
                 "- **03.10 (화) 23:59** | 선수 등록 마감 (총 30명 선착순 조기 마감 가능)\n"
-                "- **03.03.10 (화) ~** | 공식 스크림 기간 시작\n"
+                "- **03.10 (화) ~**     | 공식 스크림 기간 시작\n"
                 "- **03.21 (토) 23:59** | 팀 로스터 확정 (이적 시장 종료 & 조 추첨)\n"
                 "- **03.28 (토) 21:00** | Group Stage (A/B조 단판 풀리그) & 데스매치\n"
                 "- **03.29 (일) 21:00** | Semi Final (4강전)\n"
@@ -968,13 +1041,13 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             color=embed_color
         )
         embed.add_field(
-            name="[ 1. TEAM CREATION & SIGN-UP (팀 창단 및 가입) ]", 
+            name="[ 1. TEAM ROSTER MANAGEMENT (팀 창단/가입/방출) ]", 
             value=(
                 "📍 **채널:** <#1477537891214426262> (이동 클릭)\n"
-                "🆕 **팀 창단:** `/팀생성` (원하는 팀 이름 입력, 선착순 최대 6팀 제한)\n"
+                "🆕 **팀 창단:** `/팀생성` (원하는 팀 이름 입력, 최대 6팀)\n"
                 "🤝 **팀 가입:** `/팀가입` (자동완성 리스트에서 기존 팀 선택)\n"
-                "- 이적 시장 마감일 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n"
-                "- 팀당 정원은 최대 5명이며, 정원 초과 시 가입이 차단됩니다."
+                "🚷 **팀원 방출:** `/팀원추방` (같은 팀원을 강제 FA 전환)\n"
+                "- 이적 시장 마감 전까지 자유로운 이적(탕치기)과 방출이 허용됩니다."
             ), 
             inline=False
         )
@@ -1075,22 +1148,27 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
     elif notice_type == "guide_join":
         embed = discord.Embed(
             title="[ SYSTEM GUIDE: TEAM CREATION & SIGN-UP ]",
-            description="참가자는 직접 새로운 팀을 창단하거나 기존 팀에 자유롭게 합류할 수 있습니다.",
+            description="참가자는 직접 새로운 팀을 창단하거나 기존 팀에 합류할 수 있으며, 치열한 이적 시장 규정을 따릅니다.",
             color=embed_color
         )
         embed.add_field(
             name="[ 1. 새로운 팀 창단하기 ]",
-            value="💬 채팅창에 `/팀생성 [원하는 팀 이름]`을 입력하세요.\n- 본인이 해당 팀의 첫 번째 멤버(팀장)로 자동 등록됩니다.\n- 대회 규정상 총 **6개 팀**까지만 창단이 가능합니다.",
+            value="💬 채팅창에 `/팀생성 [원하는 팀 이름]`을 입력하세요.\n- 본인이 해당 팀의 팀장(첫 번째 멤버)으로 자동 등록되며, 대회 규정상 총 **6개 팀**까지만 창단이 가능합니다.",
             inline=False
         )
         embed.add_field(
             name="[ 2. 기존 팀 가입 및 이적 ]",
-            value="💬 채팅창에 `/팀가입`을 입력하고, 리스트에서 원하는 팀을 선택하세요.\n- 선택한 팀의 정원(5명)이 꽉 차지 않았다면 즉시 합류됩니다.",
+            value="💬 채팅창에 `/팀가입`을 입력하고 리스트에서 팀을 선택하세요.\n- 선택한 팀의 정원(5명)이 꽉 차지 않았다면 즉시 합류됩니다.",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 3. 팀원 방출 (FA 전환) ]",
+            value="💬 채팅창에 `/팀원추방`을 입력하고 방출할 팀원을 멘션하세요.\n- 같은 팀에 속한 멤버만 방출할 수 있으며, 방출된 인원은 즉시 무소속이 됩니다.",
             inline=False
         )
         embed.add_field(
             name="[ 유의사항 ]",
-            value="- 이적 시장 마감일(03.21) 전까지는 자유롭게 다른 팀으로 이동(탕치기)이 가능합니다.\n- 마감 이후에는 로스터가 완전히 고정되며, 각 팀별 프라이빗 전략 채널이 오픈됩니다.",
+            value="- 이적 시장 마감일(03.21) 전까지는 무제한 탕치기와 강제 방출이 허용됩니다.\n- 마감 이후에는 로스터가 완전히 고정되며, 각 팀별 프라이빗 작전 회의실이 오픈됩니다.",
             inline=False
         )
 
