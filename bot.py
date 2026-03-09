@@ -579,33 +579,43 @@ async def confirm_teams_slash(interaction: discord.Interaction):
             log_msgs.append(f"👥 `{team_name}` {assigned_count}명 역할 부여 완료")
 
             # ==========================================
-            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트 (관전자 로직 추가)
+            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트 (팬 소통방 & 권한 위임)
             # ==========================================
             category_name = f"[ {team_name} ]"
             category = discord.utils.get(guild.categories, name=category_name)
-            spectator_role = discord.utils.get(guild.roles, name="관전자")
             
-            # [ 기본 권한 ]: @everyone(기본)은 못 보고, '팀원'은 다 할 수 있음
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(view_channel=False, connect=False),
-                role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, send_messages=True)
+            # [ 1. 작전실 권한 ]: 아무도 못 보고 팀원만 볼 수 있음
+            txt_overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+            }
+
+            # [ 2. 보이스 채널 권한 (👑 핵심: 선수들에게 관리 권한 부여!) ]
+            vc_overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=False), # 남들은 보이지만 접속 불가
+                role: discord.PermissionOverwrite(
+                    view_channel=True, 
+                    connect=True, 
+                    speak=True, 
+                    move_members=True,     # 👑 팀원이 다른 사람을 '연결 끊기(추방)' 가능!
+                    manage_channels=True   # 👑 팀원이 우클릭해서 '인원수 제한' 변경 가능!
+                )
+            }
+
+            # [ 3. 팬 소통방 권한 ]: 모두가 볼 수 있고 채팅 가능
+            fan_overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
 
             if not category:
-                # 1. 카테고리 & 채팅방 생성 (이때 관전자는 권한이 없으므로 채팅방 절대 못 봄)
-                category = await guild.create_category(name=category_name, overwrites=overwrites)
-                await guild.create_text_channel(name="전략-회의", category=category)
+                category = await guild.create_category(name=category_name)
                 
-                # 2. 보이스 채널 전용 권한 세팅 (팀원 권한 + 관전자 '듣기 전용' 권한)
-                vc_overwrites = overwrites.copy()
-                if spectator_role:
-                    # 🚨 관전자: 채널 보임(True), 접속 가능(True), 말하기 불가(False)!
-                    vc_overwrites[spectator_role] = discord.PermissionOverwrite(view_channel=True, connect=True, speak=False)
-                
-                # 3. 보이스 채널 생성 (관전자 덮어쓰기 적용)
+                # 채널 3개 생성 (작전실, 보이스, 팬 소통방)
+                await guild.create_text_channel(name="🔒전략-회의", category=category, overwrites=txt_overwrites)
+                await guild.create_text_channel(name="💬참가-요청", category=category, overwrites=fan_overwrites)
                 await guild.create_voice_channel(name="🔊-보이스", category=category, overwrites=vc_overwrites)
                 
-                log_msgs.append(f"📁 `{team_name}` 비밀 채널 세팅 완료 (관전자 듣기 허용)")
+                log_msgs.append(f"📁 `{team_name}` 전용 채널 및 팬 소통방 세팅 완료 (팀원에게 관리 권한 위임)")
 
         # 4. 탕치기 잠금 스위치 ON
         TEAM_JOIN_LOCKED = True
@@ -626,6 +636,80 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send("❌ 봇에게 권한이 부족합니다! 서버 설정에서 봇의 역할을 최상단으로 올리고, '채널 관리' 및 '역할 관리' 권한을 주세요.")
     except Exception as e:
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
+
+# ==========================================
+# [ UI View ] 보이스 채널 관전 승인/거절 버튼
+# ==========================================
+class SpectateApprovalView(discord.ui.View):
+    def __init__(self, requester: discord.Member, team_role: discord.Role, voice_channel: discord.VoiceChannel):
+        super().__init__(timeout=None) # 시간제한 없음
+        self.requester = requester
+        self.team_role = team_role
+        self.voice_channel = voice_channel
+
+    @discord.ui.button(label="✅ 관전 승인", style=discord.ButtonStyle.success)
+    async def approve(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # 버튼 누른 사람이 해당 팀 소속인지 확인
+        if self.team_role not in interaction.user.roles:
+            await interaction.response.send_message("❌ 소속 팀원만 승인할 수 있습니다.", ephemeral=True)
+            return
+        
+        # 👑 요청자에게 해당 보이스 채널 '접속(O), 말하기(X)' 권한 부여!
+        await self.voice_channel.set_permissions(self.requester, connect=True, speak=False)
+        
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+        await interaction.response.send_message(f"🎉 <@{self.requester.id}> 님의 관전이 승인되었습니다! 보이스 채널에 접속하세요.")
+
+    @discord.ui.button(label="❌ 거절", style=discord.ButtonStyle.danger)
+    async def deny(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.team_role not in interaction.user.roles:
+            await interaction.response.send_message("❌ 소속 팀원만 거절할 수 있습니다.", ephemeral=True)
+            return
+
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+        await interaction.response.send_message(f"🚫 <@{self.requester.id}> 님의 관전 요청이 거절되었습니다.")
+
+# ==========================================
+# /관전요청 슬래시 명령어 (팬 소통방 전용)
+# ==========================================
+@bot.tree.command(name="관전요청", description="[관전자/타팀 전용] 현재 채널의 팀 보이스 방에 입장(듣기 전용)을 요청합니다.")
+async def spectate_request_slash(interaction: discord.Interaction):
+    category = interaction.channel.category
+    
+    # 해당 채널이 "[ 팀이름 ]" 형식의 카테고리 안에 있는지 검증
+    if not category or not category.name.startswith("[ ") or not category.name.endswith(" ]"):
+        await interaction.response.send_message("❌ 이 명령어는 각 팀의 `#💬팬-소통방` 안에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    # 카테고리 이름 "[ Team A ]"에서 "Team A"만 쏙 빼내기
+    team_name = category.name.strip("[] ")
+    guild = interaction.guild
+    team_role = discord.utils.get(guild.roles, name=team_name)
+    voice_channel = discord.utils.get(category.voice_channels, name="🔊-보이스")
+    
+    if not team_role or not voice_channel:
+        await interaction.response.send_message("❌ 팀 정보나 보이스 채널을 찾을 수 없습니다.", ephemeral=True)
+        return
+
+    # 이미 같은 팀 소속이면 컷
+    if team_role in interaction.user.roles:
+        await interaction.response.send_message("⚠️ 본인 소속 팀의 보이스 채널은 요청 없이 자유롭게 들어갈 수 있습니다.", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="🎫 보이스 채널 관전 요청",
+        description=f"<@{interaction.user.id}> 님이 **{team_name}** 팀의 보이스 채널에 입장을 요청했습니다.\n(승인 시 마이크가 차단된 듣기 전용으로 접속됩니다.)",
+        color=0x3498DB
+    )
+    
+    view = SpectateApprovalView(interaction.user, team_role, voice_channel)
+    
+    # 팀원들을 멘션하면서 버튼 띄워주기
+    await interaction.response.send_message(content=f"{team_role.mention} 관전 요청이 들어왔습니다!", embed=embed, view=view)
 
 # ==========================================
 # /자기소개 슬래시 명령어 (모든 유저 사용 가능)
