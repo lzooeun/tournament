@@ -1033,7 +1033,7 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
         embed.add_field(
             name="[ OFFICIAL SCHEDULE ]", 
             value=(
-                "- **03.10 (화) 23:59** | 선수 등록 마감 (총 30명 선착순 조기 마감 가능)\n"
+                "- **03.09 (화) 23:59** | 선수 등록 마감 (총 30명 선착순 조기 마감 가능)\n"
                 "- **03.10 (화) ~**     | 공식 스크림 기간 시작\n"
                 "- **03.21 (토) 23:59** | 팀 로스터 확정 (이적 시장 종료 & 조 추첨)\n"
                 "- **03.28 (토) 21:00** | Group Stage (A/B조 단판 풀리그) & 데스매치\n"

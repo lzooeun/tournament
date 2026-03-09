@@ -39,7 +39,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 1", 
+      "solo_rank": "Emerald 3", 
       "main_position": "JGL", 
       "sub_position": "TOP",
       "note": "미드, 원딜 가능" 
@@ -99,7 +99,7 @@
       "discord_user_id": "528069684222885888", 
       "tier": 2, 
       "team": null, 
-      "highest_rank": "Diamond 4", 
+      "highest_rank": "Diamond 3", 
       "solo_rank": "Diamond 4", 
       "main_position": "TOP", 
       "sub_position": null 
@@ -145,7 +145,7 @@
       "discord_user_id": "752233960813232168", 
       "tier": 3, 
       "team": null, 
-      "highest_rank": "Platinum 3", 
+      "highest_rank": "Platinum 2", 
       "solo_rank": "Platinum 3", 
       "main_position": "MID", 
       "sub_position": "TOP" 
@@ -192,7 +192,7 @@
       "tier": 4, 
       "team": null, 
       "highest_rank": "Platinum 4", 
-      "solo_rank": "Platinum 4", 
+      "solo_rank": "Platinum 3", 
       "main_position": "JGL", 
       "sub_position": null,
       "note": "미드 빼고 모든 포지션 가능" 
@@ -283,7 +283,7 @@
       "tier": 5, 
       "team": null, 
       "highest_rank": "Silver 3", 
-      "solo_rank": "Bronze 3", 
+      "solo_rank": "Bronze 1", 
       "main_position": "MID", 
       "sub_position": "ADC" 
     }
@@ -313,7 +313,7 @@
       "tier": 5, 
       "team": null, 
       "highest_rank": "Gold 4", 
-      "solo_rank": "Bronze 1", 
+      "solo_rank": "Silver 2", 
       "main_position": "TOP", 
       "sub_position": "SUP" 
     }
@@ -358,7 +358,7 @@
       "tier": 3, 
       "team": null, 
       "highest_rank": "Emerald 3", 
-      "solo_rank": "Platinum 3", 
+      "solo_rank": "Platinum 1", 
       "main_position": "MID", 
       "sub_position": "ADC"
     }
@@ -373,7 +373,7 @@
       "tier": 5, 
       "team": null, 
       "highest_rank": "Bronze 1", 
-      "solo_rank": "Bronze 4", 
+      "solo_rank": "Bronze 3", 
       "main_position": "ADC", 
       "sub_position": "TOP"
     }
@@ -404,7 +404,7 @@
       "tier": 4, 
       "team": null, 
       "highest_rank": "Platinum 4", 
-      "solo_rank": null, 
+      "solo_rank": "Silver 4", 
       "main_position": "JGL", 
       "sub_position": "TOP",
       "note": "서폿 가능"
@@ -420,9 +420,39 @@
       "tier": 2, 
       "team": null, 
       "highest_rank": "Emerald 2", 
-      "solo_rank": "Emerald 3", 
+      "solo_rank": "Emerald 4", 
       "main_position": "TOP", 
       "sub_position": "MID"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 29,
+    "fields": {
+      "riot_id": "Tooxy#NA1", 
+      "discord_username": "geeyeolrhyu", 
+      "discord_user_id": "280531406168391684",
+      "tier": 2, 
+      "team": null, 
+      "highest_rank": "Diamond 2", 
+      "solo_rank": "Emerald 4", 
+      "main_position": "TOP", 
+      "sub_position": "MID"
+    }
+  },
+  {
+    "model": "tournament.player",
+    "pk": 30,
+    "fields": {
+      "riot_id": "HEINGING#YEON", 
+      "discord_username": "heinging", 
+      "discord_user_id": "399026433453850627",
+      "tier": 1, 
+      "team": null, 
+      "highest_rank": "Master 1", 
+      "solo_rank": "Diamond 1", 
+      "main_position": "JGL", 
+      "sub_position": "ADC"
     }
   }
 ]
