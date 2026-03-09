@@ -261,9 +261,43 @@ async def on_member_join(member):
             ),
             inline=False
         )
+        embed.add_field(
+            name="[ STEP 3 ] 역할 선택 (필수)",
+            value="아래 이모지를 클릭하여 서버 접근 권한을 획득하세요.\n⚔️ : **참가자** (선수 등록 및 로스터 관리 가능)\n🍿 : **관전자** (공용 채널 열람 및 각 팀 보이스 청취 가능)",
+            inline=False
+        )
         
-        # 멘션과 함께 임베드 전송 (유저에게 알림이 가도록 content에 멘션 포함)
-        await welcome_channel.send(content=f"<@{member.id}>", embed=embed)
+        msg = await welcome_channel.send(content=f"<@{member.id}>", embed=embed)
+        await msg.add_reaction("⚔️")
+        await msg.add_reaction("🍿")
+
+
+# ==========================================
+# [ 이벤트 ] 유저가 리액션(이모지)을 눌렀을 때 (참가자 vs 관전자)
+# ==========================================
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.member.bot:
+        return
+
+    WELCOME_CHANNEL_ID = 1477547605276754025 # 웰컴 채널 ID 확인!
+
+    if payload.channel_id == WELCOME_CHANNEL_ID:
+        guild = bot.get_guild(payload.guild_id)
+        role_name = None
+
+        if str(payload.emoji) == "⚔️":
+            role_name = "참가자"
+        elif str(payload.emoji) == "🍿":
+            role_name = "관전자"
+
+        if role_name:
+            role = discord.utils.get(guild.roles, name=role_name)
+            if role:
+                await payload.member.add_roles(role)
+                print(f"✅ {payload.member.name} 님에게 '{role_name}' 역할이 부여되었습니다.")
+            else:
+                print(f"❌ '{role_name}' 역할을 서버에서 찾을 수 없습니다.")
 
 # ==========================================
 # 팀 이름 자동완성 함수
@@ -545,26 +579,33 @@ async def confirm_teams_slash(interaction: discord.Interaction):
             log_msgs.append(f"👥 `{team_name}` {assigned_count}명 역할 부여 완료")
 
             # ==========================================
-            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트
+            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트 (관전자 로직 추가)
             # ==========================================
             category_name = f"[ {team_name} ]"
             category = discord.utils.get(guild.categories, name=category_name)
+            spectator_role = discord.utils.get(guild.roles, name="관전자")
             
-            # 권한 세팅: @everyone은 못 보고, '해당 팀 역할'만 볼 수 있게 완벽 차단!
+            # [ 기본 권한 ]: @everyone(기본)은 못 보고, '팀원'은 다 할 수 있음
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=False, connect=False),
                 role: discord.PermissionOverwrite(view_channel=True, connect=True, speak=True, send_messages=True)
             }
 
             if not category:
-                # 카테고리 생성 (권한 적용)
+                # 1. 카테고리 & 채팅방 생성 (이때 관전자는 권한이 없으므로 채팅방 절대 못 봄)
                 category = await guild.create_category(name=category_name, overwrites=overwrites)
-                
-                # 그 카테고리 안에 텍스트 채널과 음성 채널 생성
                 await guild.create_text_channel(name="전략-회의", category=category)
-                await guild.create_voice_channel(name="🔊-보이스", category=category)
                 
-                log_msgs.append(f"📁 `{team_name}` 전용 비밀 채널 생성 완료")
+                # 2. 보이스 채널 전용 권한 세팅 (팀원 권한 + 관전자 '듣기 전용' 권한)
+                vc_overwrites = overwrites.copy()
+                if spectator_role:
+                    # 🚨 관전자: 채널 보임(True), 접속 가능(True), 말하기 불가(False)!
+                    vc_overwrites[spectator_role] = discord.PermissionOverwrite(view_channel=True, connect=True, speak=False)
+                
+                # 3. 보이스 채널 생성 (관전자 덮어쓰기 적용)
+                await guild.create_voice_channel(name="🔊-보이스", category=category, overwrites=vc_overwrites)
+                
+                log_msgs.append(f"📁 `{team_name}` 비밀 채널 세팅 완료 (관전자 듣기 허용)")
 
         # 4. 탕치기 잠금 스위치 ON
         TEAM_JOIN_LOCKED = True
@@ -1016,6 +1057,7 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
     app_commands.Choice(name="5. [가이드] 결과 제출 방법 (배너 포함)", value="guide_submit"),
     app_commands.Choice(name="6. 봇 사용법 공지", value="bot_guide"),
     app_commands.Choice(name="7. [가이드] 자기소개 작성 방법", value="guide_intro"),
+    app_commands.Choice(name="8. [필독] 참가비 납부 안내", value="fee_notice"),
 ])
 @app_commands.default_permissions(administrator=True)
 async def send_official_notice(interaction: discord.Interaction, notice_type: str):
@@ -1230,6 +1272,37 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             value="- 이 데이터는 팀장들의 스카우트와 이적 시장(탕치기)의 중요한 지표가 됩니다.\n- 모든 참가자가 열람하는 공간이므로, 욕설이나 부적절한 언행은 삼가 주시기 바랍니다.",
             inline=False
         )
+
+    elif notice_type == "fee_notice":
+        embed = discord.Embed(
+            title="[ SYSTEM NOTICE: ENTRY FEE ]",
+            description="대회 상금 풀 조성 및 원활한 시스템 운영을 위한 참가비 납부 안내입니다.\n팀 로스터 확정(03.21) 전까지 **무조건 납부를 완료**해야 참가 자격이 유지됩니다.",
+            color=0xF1C40F # 경고/안내 느낌을 주는 쨍한 옐로우
+        )
+
+        embed.add_field(
+            name="[ 🗓️ 납부 기한 ]",
+            value="**최대한 빨리 납부 요망!** (늦어도 03.21 팀 확정 전까지 필수)",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 🇨🇦 몬트리올 / 캐나다 거주자 ]",
+            value="**💳 E-Transfer:** `priceisbest@gmail.com`",
+            inline=False
+        )
+        embed.add_field(
+            name="[ 🇺🇸 북미 (미국 등) 거주자 ]",
+            value=(
+                "**💳 PayPal:** `priceisbest@hotmail.com`"
+            ),
+            inline=False
+        )
+        embed.add_field(
+            name="[ 🚨 필수 유의사항 ]",
+            value="- 송금 시 메모(Message)란에 반드시 **디스코드 닉네임** 또는 **롤 닉네임**을 기재해 주십시오.\n- 미납 시 팀 확정 명단에서 강제 제외(FA)되며 대회 참여가 취소될 수 있습니다.",
+            inline=False
+        )
+        embed.set_footer(text="* 입금 확인 시 관리자가 수동으로 시스템에 반영합니다.")
 
     # 봇이 메시지를 보내기 전에 생각할 시간 벌기
     await interaction.response.defer(ephemeral=True)
