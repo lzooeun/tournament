@@ -1366,7 +1366,7 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
 
         embed.add_field(
             name="[ 🗓️ 납부 기한 ]",
-            value="**최대한 빨리 납부 요망!** (3.14까지 필수)",
+            value="**최대한 빨리 납부 요망!** (3.14까지 필수)\n -참가비: 15 CAD",
             inline=False
         )
         embed.add_field(
