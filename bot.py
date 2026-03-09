@@ -682,7 +682,7 @@ async def spectate_request_slash(interaction: discord.Interaction):
     
     # 해당 채널이 "[ 팀이름 ]" 형식의 카테고리 안에 있는지 검증
     if not category or not category.name.startswith("[ ") or not category.name.endswith(" ]"):
-        await interaction.response.send_message("❌ 이 명령어는 각 팀의 `#💬팬-소통방` 안에서만 사용할 수 있습니다.", ephemeral=True)
+        await interaction.response.send_message("❌ 이 명령어는 각 팀의 `#💬참가-요청` 안에서만 사용할 수 있습니다.", ephemeral=True)
         return
 
     # 카테고리 이름 "[ Team A ]"에서 "Team A"만 쏙 빼내기
