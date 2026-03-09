@@ -1276,7 +1276,7 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
     elif notice_type == "fee_notice":
         embed = discord.Embed(
             title="[ SYSTEM NOTICE: ENTRY FEE ]",
-            description="대회 상금 풀 조성 및 원활한 시스템 운영을 위한 참가비 납부 안내입니다.\n팀 로스터 확정(03.21) 전까지 **무조건 납부를 완료**해야 참가 자격이 유지됩니다.",
+            description="대회 상금 풀 조성 및 원활한 시스템 운영을 위한 참가비 납부 안내입니다.\n3.14 전까지 **무조건 납부를 완료**해야 참가 자격이 유지됩니다.",
             color=0xF1C40F # 경고/안내 느낌을 주는 쨍한 옐로우
         )
 
