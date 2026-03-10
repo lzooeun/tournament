@@ -69,7 +69,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 3", 
+      "solo_rank": "Emerald 4", 
       "main_position": "ADC", 
       "sub_position": "SUP" 
     }
@@ -84,7 +84,7 @@
       "discord_user_id": "359482747070185472", 
       "tier": 2, "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 2", 
+      "solo_rank": "Emerald 1", 
       "main_position": "TOP", 
       "sub_position": "SUP",
       "note": "미드, 원딜 가능"  
@@ -115,7 +115,7 @@
       "tier": 2, 
       "team": null, 
       "highest_rank": "Diamond 3", 
-      "solo_rank": "Emerald 2", 
+      "solo_rank": "Emerald 3", 
       "main_position": "MID", 
       "sub_position": "TOP" 
     }
@@ -373,7 +373,7 @@
       "tier": 5, 
       "team": null, 
       "highest_rank": "Bronze 1", 
-      "solo_rank": "Bronze 3", 
+      "solo_rank": "Bronze 4", 
       "main_position": "ADC", 
       "sub_position": "TOP"
     }
@@ -388,7 +388,7 @@
       "tier": 3, 
       "team": null, 
       "highest_rank": "Emerald 1", 
-      "solo_rank": "Platinum 1", 
+      "solo_rank": "Platinum 2", 
       "main_position": "MID", 
       "sub_position": "TOP",
       "note": "정글 가능"
@@ -398,7 +398,7 @@
     "model": "tournament.player",
     "pk": 27,
     "fields": {
-      "riot_id": "林載益#1219", 
+      "riot_id": "애기재익#응애응애", 
       "discord_username": "jaeik_lim", 
       "discord_user_id": "624149941178204161",
       "tier": 4, 
@@ -450,7 +450,7 @@
       "tier": 1, 
       "team": null, 
       "highest_rank": "Master 1", 
-      "solo_rank": "Diamond 1", 
+      "solo_rank": "Master 1", 
       "main_position": "JGL", 
       "sub_position": "ADC"
     }
