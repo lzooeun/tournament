@@ -203,7 +203,7 @@ class ApprovalView(discord.ui.View):
 # ==========================================
 @bot.event
 async def on_member_join(member):
-    WELCOME_CHANNEL_ID = 1477547605276754025  # 웰컴 메시지를 띄울 채널 (예: #입장-인사 또는 #잡담)
+    WELCOME_CHANNEL_ID = 1477547605276754025  # 웰컴 메시지를 띄울 채널
     NOTICE_CHANNEL_ID = 1477535707840118837   # #공지사항 채널 ID
     RULES_CHANNEL_ID = 1477537413654908969    # #대회-룰 채널 ID
     WEB_CHANNEL_ID = 1477537596598124566      # #웹사이트 채널 ID
@@ -213,7 +213,6 @@ async def on_member_join(member):
     def get_player_riot_id(discord_id):
         from django.db import close_old_connections
         close_old_connections()
-        
         from tournament.models import Player
         try:
             player = Player.objects.get(discord_user_id=str(discord_id))
@@ -221,11 +220,13 @@ async def on_member_join(member):
         except Player.DoesNotExist:
             return None
 
+    # DB 조회는 딱 한 번만!
     riot_id = await get_player_riot_id(member.id)
+    is_registered = bool(riot_id) # riot_id가 있으면 True(참가자), 없으면 False(관전자)
 
-    # 2. 닉네임 변경 시도
+    # 1. 닉네임 변경 시도
     changed_nick = False
-    if riot_id:
+    if is_registered:
         new_nick = riot_id[:32]
         try:
             await member.edit(nick=new_nick)
@@ -233,71 +234,63 @@ async def on_member_join(member):
         except Exception as e:
             print(f"❌ 닉네임 변경 실패: {e}")
 
+    # 2. 🚨 누락되었던 핵심! 역할(Role) 자동 부여 로직
+    guild = member.guild
+    role_name = "참가자" if is_registered else "관전자"
+    role = discord.utils.get(guild.roles, name=role_name)
+    
+    if role:
+        try:
+            await member.add_roles(role)
+            print(f"✅ {member.name} 님에게 '{role_name}' 자동 부여 완료")
+        except Exception as e:
+            print(f"❌ '{role_name}' 역할 부여 실패 (권한 부족 등): {e}")
+
     # 3. 웰컴 메시지 전송
     welcome_channel = bot.get_channel(WELCOME_CHANNEL_ID)
     if welcome_channel:
         embed = discord.Embed(
             title="🎉 신규 참가자 입장!",
             description=f"환영합니다, <@{member.id}>님! 2026 TÆKTUBE INVITATIONAL에 합류하셨습니다.",
-            color=0x6C85DE
+            color=0x2ecc71 if is_registered else 0x95a5a6 # 참가자/관전자 색상 구분
         )
         
         if changed_nick:
             embed.description += f"\n*(시스템에 의해 별명이 `{new_nick}`으로 자동 변경되었습니다.)*"
 
-        embed.add_field(
-            name="[ STEP 1 ] 필독 채널 숙지",
-            value=(
-                f"원활한 대회 진행을 위해 아래 세 채널을 반드시 정독해 주세요.\n"
-                f"<#{NOTICE_CHANNEL_ID}> | <#{RULES_CHANNEL_ID}> | <#{WEB_CHANNEL_ID}>"
-            ),
-            inline=False
-        )
-        embed.add_field(
-            name="[ STEP 2 ] 자기소개 작성",
-            value=(
-                f"다른 참가자들에게 본인을 어필해 보세요!\n"
-                f"👉 <#{INTRO_CHANNEL_ID}> 채널로 이동하여 `/자기소개` 명령어를 입력해 주세요."
-            ),
-            inline=False
-        )
-        embed.add_field(
-            name="[ STEP 3 ] 역할 선택 (필수)",
-            value="아래 이모지를 클릭하여 서버 접근 권한을 획득하세요.\n⚔️ : **참가자** (선수 등록 및 로스터 관리 가능)\n🍿 : **관전자** (공용 채널 열람 및 각 팀 보이스 청취 가능)",
-            inline=False
-        )
+        if is_registered:
+            embed.add_field(
+                name="[ ⚔️ 인증 완료: 참가자 ]",
+                value="DB에 선수 등록이 확인되어 **[참가자]** 권한이 자동 부여되었습니다.\n",
+                inline=False
+            )
+            embed.add_field(
+                name="[ STEP 1 ] 필독 채널 숙지",
+                value=(
+                    f"원활한 대회 진행을 위해 아래 세 채널을 반드시 정독해 주세요.\n"
+                    f"<#{NOTICE_CHANNEL_ID}> | <#{RULES_CHANNEL_ID}> | <#{WEB_CHANNEL_ID}>"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="[ STEP 2 ] 자기소개 작성",
+                value=(
+                    f"다른 참가자들에게 본인을 어필해 보세요!\n"
+                    f"👉 <#{INTRO_CHANNEL_ID}> 채널로 이동하여 `/자기소개` 명령어를 입력해 주세요."
+                ),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="[ 🍿 인증 완료: 관전자 ]",
+                value="DB에 등록되지 않은 계정이므로 **[관전자]** 권한이 자동 부여되었습니다.\n선수 등록을 원하실 경우 주최자에게 별도로 문의해 주십시오.",
+                inline=False
+            )
+
+        embed.set_footer(text="* 권한에 오류가 있다면 관리자를 호출해 주세요.")
         
-        msg = await welcome_channel.send(content=f"<@{member.id}>", embed=embed)
-        await msg.add_reaction("⚔️")
-        await msg.add_reaction("🍿")
+        await welcome_channel.send(content=f"<@{member.id}>", embed=embed)
 
-
-# ==========================================
-# [ 이벤트 ] 유저가 리액션(이모지)을 눌렀을 때 (참가자 vs 관전자)
-# ==========================================
-@bot.event
-async def on_raw_reaction_add(payload):
-    if payload.member.bot:
-        return
-
-    WELCOME_CHANNEL_ID = 1477547605276754025 # 웰컴 채널 ID 확인!
-
-    if payload.channel_id == WELCOME_CHANNEL_ID:
-        guild = bot.get_guild(payload.guild_id)
-        role_name = None
-
-        if str(payload.emoji) == "⚔️":
-            role_name = "참가자"
-        elif str(payload.emoji) == "🍿":
-            role_name = "관전자"
-
-        if role_name:
-            role = discord.utils.get(guild.roles, name=role_name)
-            if role:
-                await payload.member.add_roles(role)
-                print(f"✅ {payload.member.name} 님에게 '{role_name}' 역할이 부여되었습니다.")
-            else:
-                print(f"❌ '{role_name}' 역할을 서버에서 찾을 수 없습니다.")
 
 # ==========================================
 # 팀 이름 자동완성 함수
