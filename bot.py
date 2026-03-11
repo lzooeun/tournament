@@ -298,6 +298,8 @@ async def on_member_join(member):
 async def team_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     @sync_to_async
     def get_teams():
+        from django.db import close_old_connections
+        close_old_connections()
         # 사용자가 타이핑하는 글자가 포함된 팀만 DB에서 가져옴
         return list(Team.objects.filter(name__icontains=current)[:25])
     
@@ -325,6 +327,8 @@ async def submit_result(interaction: discord.Interaction, winner_team: str, dura
     # 2. DB에서 알맞은 매치 자동으로 찾아오기 (비동기 처리)
     @sync_to_async
     def get_pending_match(team_name):
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Match, Team
         
         # 입력한 팀이 존재하는지 확인
@@ -387,6 +391,8 @@ async def cancel_result_slash(interaction: discord.Interaction, match_number: in
     
     @sync_to_async
     def rollback_match(m_num):
+        from django.db import close_old_connections
+        close_old_connections()
         try:
             # 1. DB에서 해당 번호의 경기 찾기
             match = Match.objects.get(match_number=m_num)
@@ -451,6 +457,8 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
     
     @sync_to_async
     def process_join_team(d_id, t_name):
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Player, Team
         try:
             player = Player.objects.get(discord_user_id=d_id)
@@ -531,6 +539,8 @@ async def confirm_teams_slash(interaction: discord.Interaction):
     # DB에서 팀과 해당 팀원들의 디스코드 ID 가져오기
     @sync_to_async
     def get_teams_and_players():
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Team
         teams = list(Team.objects.prefetch_related('players').all())
         team_data = []
@@ -779,6 +789,8 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
 
     @sync_to_async
     def process_create_team(d_id, t_name):
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Player, Team
         try:
             # 1. 디스코드 ID로 참가자 확인
@@ -849,6 +861,8 @@ async def kick_teammate_slash(interaction: discord.Interaction, target_user: dis
 
     @sync_to_async
     def process_kick(c_id, t_id):
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Player
         try:
             caller = Player.objects.get(discord_user_id=c_id)
@@ -1050,6 +1064,8 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
     # 1. DB에서 해당 번호의 매치 정보 가져오기
     @sync_to_async
     def get_match_teams(m_num):
+        from django.db import close_old_connections
+        close_old_connections()
         from tournament.models import Match
         
         match = Match.objects.filter(match_number=m_num).first()
