@@ -498,32 +498,54 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
     
     if success:
         riot_id, old_team, new_team, deleted_team = result
+        guild = interaction.guild
+        member = interaction.user
         
         # ==========================================
-        # 🚨 [추가] 0명 남은 팀의 임시 통화방 자동 삭제
+        # 🚨 [추가 1] 새 팀 역할 부여 & 이전 팀 역할 회수
+        # ==========================================
+        # 1) 새 역할 부여
+        new_role = discord.utils.get(guild.roles, name=new_team)
+        if not new_role:
+            new_role = await guild.create_role(name=new_team, mentionable=True, reason="임시 팀 가입")
+        await member.add_roles(new_role)
+        
+        # 2) 이전 역할 회수
+        if old_team != "무소속":
+            old_role = discord.utils.get(guild.roles, name=old_team)
+            if old_role:
+                await member.remove_roles(old_role)
+
+        # ==========================================
+        # 🚨 [추가 2] 0명 남은 빈 팀의 통화방 & 역할 자동 폭파!
         # ==========================================
         if deleted_team:
-            guild = interaction.guild
-            # 지워진 팀 이름이랑 똑같은 보이스 채널 찾기
+            # 1) 채널 삭제
             channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{deleted_team}")
             if channel_to_delete:
                 try:
                     await channel_to_delete.delete()
                 except Exception as e:
                     print(f"채널 삭제 오류: {e}")
-        # ==========================================
+            
+            # 2) 역할 삭제
+            role_to_delete = discord.utils.get(guild.roles, name=deleted_team)
+            if role_to_delete:
+                try:
+                    await role_to_delete.delete()
+                except Exception as e:
+                    print(f"역할 삭제 오류: {e}")
         
         embed = discord.Embed(title="🤝 팀 이적 완료!", color=0x2ecc71)
         embed.description = f"**{riot_id}** 님이 팀을 이동했습니다."
         embed.add_field(name="이전 소속", value=old_team, inline=True)
         embed.add_field(name="➡️", value=" ", inline=True)
-        embed.add_field(name="새로운 소속", value=f"**{new_team}**", inline=True)
+        embed.add_field(name="새로운 소속", value=f"{new_role.mention}", inline=True) # 멘션으로 표시
         
-        # 💥 폭파된 팀이 있다면 추가 알림!
         if deleted_team:
             embed.add_field(
                 name="💥 팀 해체 알림", 
-                value=f"**{deleted_team}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다.\n*(임시 통화방도 함께 삭제되었습니다)*", 
+                value=f"**{deleted_team}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다.\n*(임시 통화방 및 팀 역할도 삭제되었습니다)*", 
                 inline=False
             )
             
@@ -838,39 +860,49 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
     
     if success:
         riot_id, new_team_name = result
+        guild = interaction.guild
         
         # ==========================================
-        # 🚨 [추가] 임시 스크림 보이스 채널 자동 생성
+        # 🚨 [추가 1] 팀 역할(Role) 자동 생성 및 부여
         # ==========================================
-        guild = interaction.guild
+        role = discord.utils.get(guild.roles, name=new_team_name)
+        if not role:
+            # mentionable=True 로 설정해서 @팀이름 태그 가능하게 만듦!
+            role = await guild.create_role(name=new_team_name, mentionable=True, reason="임시 팀 창단")
+        await interaction.user.add_roles(role)
+
+        # ==========================================
+        # 🚨 [추가 2] 임시 스크림 보이스 채널 자동 생성
+        # ==========================================
         category_name = "🔄 임시 스크림 룸"
         category = discord.utils.get(guild.categories, name=category_name)
-        
-        # 카테고리가 없으면 새로 만들기
         if not category:
             category = await guild.create_category(category_name)
             
-        # 보이스 채널 생성 (누구나 들어올 수 있게 기본 권한)
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True),
+            role: discord.PermissionOverwrite(move_members=True) # 팀장(팀원)에게 킥 권한 부여
+        }
+            
         try:
-            await guild.create_voice_channel(name=f"🔊-{new_team_name}", category=category)
+            # 채널 만들 때 overwrites 옵션 추가
+            await guild.create_voice_channel(name=f"🔊-{new_team_name}", category=category, overwrites=overwrites)
         except Exception as e:
             print(f"채널 생성 오류: {e}")
-        # ==========================================
-        
+            
         # 빰빠빰! 성공 임베드 메시지
         embed = discord.Embed(title="🎊 신규 팀 창단 완료!", color=0xF1C40F)
         embed.description = f"**{riot_id}** 님이 새로운 팀을 창단했습니다!"
-        embed.add_field(name="[ 팀 이름 ]", value=f"**{new_team_name}**", inline=False)
+        embed.add_field(name="[ 팀 이름 ]", value=f"{role.mention}", inline=False) # 멘션으로 예쁘게 표시
         embed.add_field(
             name="[ 안내 ]", 
-            value=f"이제 다른 참가자들이 `/팀가입`을 통해 합류할 수 있습니다.\n**임시 스크림 통화방(`🔊-{new_team_name}`)**이 생성되었으니 자유롭게 활용하세요!", 
+            value=f"이제 다른 참가자들이 `/팀가입`을 통해 합류할 수 있습니다.\n**임시 통화방(`🔊-{new_team_name}`)**과 **팀 전용 역할**이 지급되었습니다!", 
             inline=False
         )
         embed.set_footer(text="팀장님, 멋진 로스터를 꾸려 우승을 차지해 보세요!")
         
         await interaction.followup.send(embed=embed)
     else:
-        # 실패 시 에러 메시지 (본인에게만 보임)
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
@@ -936,19 +968,35 @@ async def kick_teammate_slash(interaction: discord.Interaction, target_user: dis
     
     if success:
         target_riot_id, team_name, deleted_team = result
+        guild = interaction.guild
         
         # ==========================================
-        # 🚨 [추가] 0명 남은 팀의 임시 통화방 자동 삭제
+        # 🚨 [추가 1] 방출된 유저의 팀 역할 회수
+        # ==========================================
+        role_to_remove = discord.utils.get(guild.roles, name=team_name)
+        if role_to_remove:
+            try:
+                await target_user.remove_roles(role_to_remove)
+            except Exception as e:
+                print(f"역할 회수 오류: {e}")
+
+        # ==========================================
+        # 🚨 [추가 2] 0명 남은 빈 팀의 통화방 & 역할 폭파
         # ==========================================
         if deleted_team:
-            guild = interaction.guild
             channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{deleted_team}")
             if channel_to_delete:
                 try:
                     await channel_to_delete.delete()
                 except Exception as e:
                     print(f"채널 삭제 오류: {e}")
-        # ==========================================
+                    
+            role_to_delete = discord.utils.get(guild.roles, name=deleted_team)
+            if role_to_delete:
+                try:
+                    await role_to_delete.delete()
+                except Exception as e:
+                    print(f"역할 삭제 오류: {e}")
         
         embed = discord.Embed(title="🚨 팀원 방출 (FA 전환)", color=0xE74C3C)
         embed.description = f"**{target_riot_id}** 님이 **{team_name}** 팀에서 방출되었습니다."
@@ -956,7 +1004,7 @@ async def kick_teammate_slash(interaction: discord.Interaction, target_user: dis
         if deleted_team:
             embed.add_field(
                 name="💥 팀 해체 알림", 
-                value=f"해당 방출로 인해 **{deleted_team}** 팀의 인원이 0명이 되어 자동 해체(삭제)되었습니다.\n*(임시 통화방도 함께 삭제되었습니다)*", 
+                value=f"해당 방출로 인해 **{deleted_team}** 팀의 인원이 0명이 되어 자동 해체(삭제)되었습니다.\n*(임시 통화방 및 팀 역할도 삭제되었습니다)*", 
                 inline=False
             )
             
@@ -1181,9 +1229,9 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
     await interaction.followup.send(result_msg)
 
 # ==========================================
-# /스크림방복구 슬래시 명령어 (관리자 전용 - 1회성)
+# /스크림방복구 슬래시 명령어 (관리자 전용 - 1회성 동기화)
 # ==========================================
-@bot.tree.command(name="스크림방복구", description="[관리자 전용] 기존에 생성된 팀들의 임시 스크림 통화방을 일괄 생성합니다.")
+@bot.tree.command(name="스크림방복구", description="[관리자 전용] 통화방/역할 생성 및 팀원에게 '킥 권한'을 일괄 부여합니다.")
 @app_commands.default_permissions(administrator=True)
 async def restore_voice_channels(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
@@ -1192,34 +1240,84 @@ async def restore_voice_channels(interaction: discord.Interaction):
     category_name = "🔄 임시 스크림 룸"
     category = discord.utils.get(guild.categories, name=category_name)
     
-    # 카테고리 없으면 생성
     if not category:
         category = await guild.create_category(category_name)
 
-    # DB에서 현재 만들어진 모든 팀 이름 가져오기
     @sync_to_async
-    def get_all_teams():
+    def get_teams_and_players():
         from django.db import close_old_connections
         close_old_connections()
         from tournament.models import Team
-        return list(Team.objects.values_list('name', flat=True))
-
-    teams = await get_all_teams()
-    created_channels = []
-
-    # 각 팀마다 채널이 없으면 만들기
-    for team_name in teams:
-        channel_name = f"🔊-{team_name}"
-        existing_channel = discord.utils.get(guild.voice_channels, name=channel_name)
         
-        if not existing_channel:
-            await guild.create_voice_channel(name=channel_name, category=category)
-            created_channels.append(team_name)
+        teams_data = []
+        for team in Team.objects.prefetch_related('players').all():
+            player_ids = [player.discord_user_id for player in team.players.all()]
+            teams_data.append((team.name, player_ids))
+        return teams_data
 
-    if created_channels:
-        await interaction.followup.send(f"✅ 기존 팀들의 통화방 복구 완료: {', '.join(created_channels)}")
-    else:
-        await interaction.followup.send("⚠️ 이미 모든 팀의 통화방이 존재하거나, 생성된 팀이 없습니다.")
+    teams_data = await get_teams_and_players()
+    created_channels = []
+    created_roles = []
+    updated_perms = []
+    assigned_count = 0
+
+    try:
+        for team_name, player_ids in teams_data:
+            # 1. 🏷️ 역할(Role)부터 복구 (채널 권한 설정에 써야 하므로 무조건 먼저!)
+            role = discord.utils.get(guild.roles, name=team_name)
+            if not role:
+                role = await guild.create_role(name=team_name, mentionable=True, reason="스크림방 복구 및 역할 동기화")
+                created_roles.append(team_name)
+
+            # 2. 👑 팀 전용 킥 권한(오버라이드) 세팅
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True), # 일반인은 들어올 수 있음
+                role: discord.PermissionOverwrite(move_members=True) # 👑 해당 팀원은 남을 킥(연결 끊기) 할 수 있음!
+            }
+                
+            # 3. 🔊 보이스 채널 복구 및 권한 부여
+            channel_name = f"🔊-{team_name}"
+            existing_channel = discord.utils.get(guild.voice_channels, name=channel_name)
+            
+            if not existing_channel:
+                # 채널이 없으면 권한을 씌워서 새로 만듦
+                await guild.create_voice_channel(name=channel_name, category=category, overwrites=overwrites)
+                created_channels.append(team_name)
+            else:
+                # 이미 채널이 있다면 기존 채널에 킥 권한만 업데이트!
+                await existing_channel.set_permissions(role, move_members=True)
+                updated_perms.append(team_name)
+                
+            # 4. 👥 해당 팀원들에게 역할 일괄 지급
+            for d_id in player_ids:
+                member = guild.get_member(int(d_id))
+                if not member:
+                    try:
+                        member = await guild.fetch_member(int(d_id))
+                    except discord.NotFound:
+                        continue
+                
+                if member and role not in member.roles:
+                    await member.add_roles(role)
+                    assigned_count += 1
+
+        # 5. 결과 보고서
+        msg = "✅ **기존 팀 통화방, 역할, 킥 권한 동기화 완료!**\n"
+        if created_channels:
+            msg += f"- 🔊 **새로 생성된 통화방:** {', '.join(created_channels)}\n"
+        if updated_perms:
+            msg += f"- 👑 **킥 권한이 부여된 기존 방:** {', '.join(updated_perms)}\n"
+        if created_roles:
+            msg += f"- 🏷️ **새로 생성된 역할:** {', '.join(created_roles)}\n"
+        if assigned_count > 0:
+            msg += f"- 👥 **역할을 지급받은 팀원 수:** 총 {assigned_count}명\n"
+
+        await interaction.followup.send(msg)
+
+    except discord.Forbidden:
+        await interaction.followup.send("❌ 봇의 권한이 부족합니다! 봇의 역할을 최상단으로 올리고, '역할 관리' 및 '채널 관리' 권한을 주세요.")
+    except Exception as e:
+        await interaction.followup.send(f"❌ 시스템 오류 발생: {e}")
 
 # ==========================================
 # /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 배너 가이드 포함
