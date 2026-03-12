@@ -155,15 +155,15 @@
     "model": "tournament.player",
     "pk": 11,
     "fields": { 
-      "riot_id": "rudnf#1004", 
-      "discord_username": "diejoubu.", 
-      "discord_user_id": "826220876188876810", 
+      "riot_id": "carthegarden#jaki", 
+      "discord_username": "jaki.0707", 
+      "discord_user_id": "422055113096691723", 
       "tier": 3, 
       "team": null, 
-      "highest_rank": "Emerald 4", 
-      "solo_rank": "Emerald 4", 
-      "main_position": "SUP", 
-      "sub_position": "TOP" 
+      "highest_rank": "Platinum 2", 
+      "solo_rank": null, 
+      "main_position": "ADC", 
+      "sub_position": "SUP" 
     }
   },
   {
@@ -337,15 +337,15 @@
     "model": "tournament.player",
     "pk": 23,
     "fields": {
-      "riot_id": "zl 존강 해휴#악세총무팀", 
-      "discord_username": "ssokdoksay", 
-      "discord_user_id": "957380887211823134", 
+      "riot_id": "hayoung1201#NA1", 
+      "discord_username": "TEMP23", 
+      "discord_user_id": "TEMP23", 
       "tier": 2, 
       "team": null, 
-      "highest_rank": "Emerald 2", 
-      "solo_rank": null, 
-      "main_position": "ADC", 
-      "sub_position": "SUP"
+      "highest_rank": "Master 1", 
+      "solo_rank": "Emerald 2", 
+      "main_position": "SUP", 
+      "sub_position": "ADC"
     }
   },
   {
@@ -367,15 +367,15 @@
     "model": "tournament.player",
     "pk": 25,
     "fields": {
-      "riot_id": "Jejunum#3502", 
-      "discord_username": "jejunum3945", 
-      "discord_user_id": "510626223190310922",
+      "riot_id": "MOLLOU#NA1", 
+      "discord_username": "jeongheon3856", 
+      "discord_user_id": "492784235094999051",
       "tier": 5, 
       "team": null, 
-      "highest_rank": "Bronze 1", 
-      "solo_rank": "Bronze 4", 
-      "main_position": "ADC", 
-      "sub_position": "TOP"
+      "highest_rank": "Platinum 2", 
+      "solo_rank": "Gold 4", 
+      "main_position": "MID", 
+      "sub_position": "JGL"
     }
   },
   {

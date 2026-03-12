@@ -499,6 +499,20 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
     if success:
         riot_id, old_team, new_team, deleted_team = result
         
+        # ==========================================
+        # 🚨 [추가] 0명 남은 팀의 임시 통화방 자동 삭제
+        # ==========================================
+        if deleted_team:
+            guild = interaction.guild
+            # 지워진 팀 이름이랑 똑같은 보이스 채널 찾기
+            channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{deleted_team}")
+            if channel_to_delete:
+                try:
+                    await channel_to_delete.delete()
+                except Exception as e:
+                    print(f"채널 삭제 오류: {e}")
+        # ==========================================
+        
         embed = discord.Embed(title="🤝 팀 이적 완료!", color=0x2ecc71)
         embed.description = f"**{riot_id}** 님이 팀을 이동했습니다."
         embed.add_field(name="이전 소속", value=old_team, inline=True)
@@ -509,7 +523,7 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         if deleted_team:
             embed.add_field(
                 name="💥 팀 해체 알림", 
-                value=f"**{deleted_team}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다. (새로운 팀 창단 가능)", 
+                value=f"**{deleted_team}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다.\n*(임시 통화방도 함께 삭제되었습니다)*", 
                 inline=False
             )
             
@@ -825,13 +839,31 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
     if success:
         riot_id, new_team_name = result
         
+        # ==========================================
+        # 🚨 [추가] 임시 스크림 보이스 채널 자동 생성
+        # ==========================================
+        guild = interaction.guild
+        category_name = "🔄 임시 스크림 룸"
+        category = discord.utils.get(guild.categories, name=category_name)
+        
+        # 카테고리가 없으면 새로 만들기
+        if not category:
+            category = await guild.create_category(category_name)
+            
+        # 보이스 채널 생성 (누구나 들어올 수 있게 기본 권한)
+        try:
+            await guild.create_voice_channel(name=f"🔊-{new_team_name}", category=category)
+        except Exception as e:
+            print(f"채널 생성 오류: {e}")
+        # ==========================================
+        
         # 빰빠빰! 성공 임베드 메시지
-        embed = discord.Embed(title="🎊 신규 팀 창단 완료!", color=0xF1C40F) # 빛나는 황금색
+        embed = discord.Embed(title="🎊 신규 팀 창단 완료!", color=0xF1C40F)
         embed.description = f"**{riot_id}** 님이 새로운 팀을 창단했습니다!"
         embed.add_field(name="[ 팀 이름 ]", value=f"**{new_team_name}**", inline=False)
         embed.add_field(
             name="[ 안내 ]", 
-            value=f"이제 다른 참가자들이 `/팀가입` 명령어의 자동완성 리스트에서 **{new_team_name}**을 찾아 가입할 수 있습니다.", 
+            value=f"이제 다른 참가자들이 `/팀가입`을 통해 합류할 수 있습니다.\n**임시 스크림 통화방(`🔊-{new_team_name}`)**이 생성되었으니 자유롭게 활용하세요!", 
             inline=False
         )
         embed.set_footer(text="팀장님, 멋진 로스터를 꾸려 우승을 차지해 보세요!")
@@ -905,14 +937,26 @@ async def kick_teammate_slash(interaction: discord.Interaction, target_user: dis
     if success:
         target_riot_id, team_name, deleted_team = result
         
+        # ==========================================
+        # 🚨 [추가] 0명 남은 팀의 임시 통화방 자동 삭제
+        # ==========================================
+        if deleted_team:
+            guild = interaction.guild
+            channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{deleted_team}")
+            if channel_to_delete:
+                try:
+                    await channel_to_delete.delete()
+                except Exception as e:
+                    print(f"채널 삭제 오류: {e}")
+        # ==========================================
+        
         embed = discord.Embed(title="🚨 팀원 방출 (FA 전환)", color=0xE74C3C)
         embed.description = f"**{target_riot_id}** 님이 **{team_name}** 팀에서 방출되었습니다."
         
-        # 💥 1명 남은 팀장이 다른 팀원을 다 쫓아내고, 마지막으로 남은 한 명마저 쫓겨나서 팀이 비어버릴 경우 대비
         if deleted_team:
             embed.add_field(
                 name="💥 팀 해체 알림", 
-                value=f"해당 방출로 인해 **{deleted_team}** 팀의 인원이 0명이 되어 자동 해체(삭제)되었습니다.", 
+                value=f"해당 방출로 인해 **{deleted_team}** 팀의 인원이 0명이 되어 자동 해체(삭제)되었습니다.\n*(임시 통화방도 함께 삭제되었습니다)*", 
                 inline=False
             )
             
@@ -1136,6 +1180,46 @@ async def match_notification_slash(interaction: discord.Interaction, match_num: 
         
     await interaction.followup.send(result_msg)
 
+# ==========================================
+# /스크림방복구 슬래시 명령어 (관리자 전용 - 1회성)
+# ==========================================
+@bot.tree.command(name="스크림방복구", description="[관리자 전용] 기존에 생성된 팀들의 임시 스크림 통화방을 일괄 생성합니다.")
+@app_commands.default_permissions(administrator=True)
+async def restore_voice_channels(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    guild = interaction.guild
+    category_name = "🔄 임시 스크림 룸"
+    category = discord.utils.get(guild.categories, name=category_name)
+    
+    # 카테고리 없으면 생성
+    if not category:
+        category = await guild.create_category(category_name)
+
+    # DB에서 현재 만들어진 모든 팀 이름 가져오기
+    @sync_to_async
+    def get_all_teams():
+        from django.db import close_old_connections
+        close_old_connections()
+        from tournament.models import Team
+        return list(Team.objects.values_list('name', flat=True))
+
+    teams = await get_all_teams()
+    created_channels = []
+
+    # 각 팀마다 채널이 없으면 만들기
+    for team_name in teams:
+        channel_name = f"🔊-{team_name}"
+        existing_channel = discord.utils.get(guild.voice_channels, name=channel_name)
+        
+        if not existing_channel:
+            await guild.create_voice_channel(name=channel_name, category=category)
+            created_channels.append(team_name)
+
+    if created_channels:
+        await interaction.followup.send(f"✅ 기존 팀들의 통화방 복구 완료: {', '.join(created_channels)}")
+    else:
+        await interaction.followup.send("⚠️ 이미 모든 팀의 통화방이 존재하거나, 생성된 팀이 없습니다.")
 
 # ==========================================
 # /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 배너 가이드 포함
