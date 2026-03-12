@@ -801,27 +801,19 @@ async def self_introduction(
     await interaction.response.send_message(embed=embed)
 
 # ==========================================
-# /팀생성 슬래시 명령어 (참가자 직접 창단)
+# /팀생성 슬래시 명령어
 # ==========================================
-@bot.tree.command(name="팀생성", description="새로운 팀을 창단하고 해당 팀의 첫 번째 멤버로 등록됩니다.")
-@app_commands.describe(team_name="창단할 팀의 이름을 입력하세요 (최대 15자)")
+@bot.tree.command(name="팀생성", description="새로운 팀을 창단합니다. (기존 팀에 소속되어 있다면 자동으로 탈퇴됩니다.)")
+@app_commands.describe(team_name="생성할 팀의 이름을 입력하세요")
 async def create_team_slash(interaction: discord.Interaction, team_name: str):
-    # 팀 가입 채널과 동일한 곳에서 사용하도록 제한
     if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
         await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
         return
 
     global TEAM_JOIN_LOCKED
     if TEAM_JOIN_LOCKED:
-        await interaction.response.send_message("❌ 이적 및 창단 기간이 마감되어 새로운 팀을 만들 수 없습니다.", ephemeral=True)
+        await interaction.response.send_message("❌ 이적 시장이 종료되어 더 이상 팀을 생성할 수 없습니다.", ephemeral=True)
         return
-
-    # 글자 수 제한 (디스코드 역할 이름 길이 제한 등 UI/UX 고려)
-    if len(team_name.strip()) > 15:
-        await interaction.response.send_message("❌ 팀 이름은 공백 포함 최대 15자까지만 가능합니다.", ephemeral=True)
-        return
-
-    user_id = str(interaction.user.id)
 
     @sync_to_async
     def process_create_team(d_id, t_name):
@@ -829,50 +821,88 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
         close_old_connections()
         from tournament.models import Player, Team
         try:
-            # 1. 디스코드 ID로 참가자 확인
             player = Player.objects.get(discord_user_id=d_id)
             
-            # 2. 팀 이름 중복 검사 (대소문자 무시하고 일치하는지 확인)
+            # 1. 중복 이름 검사
             if Team.objects.filter(name__iexact=t_name).exists():
                 return False, f"❌ **{t_name}** (이)라는 이름의 팀이 이미 존재합니다. 다른 이름을 골라주세요."
             
-            # 3. 최대 팀 개수 제한 (대회 규모 6팀으로 제한)
-            if Team.objects.count() >= 6:
-                return False, "❌ 이미 6개의 팀이 모두 창단되었습니다! 기존에 만들어진 팀에 `/팀가입` 해주세요."
-
-            # 4. 팀 생성 및 유저 자동 할당
-            new_team = Team.objects.create(name=t_name)
+            old_team_name = None
+            deleted_team_name = None
+            
+            # ==========================================
+            # 🚨 [추가된 로직] 이미 팀이 있다면 자동 탈퇴 처리
+            # ==========================================
+            if player.team:
+                old_team = player.team
+                old_team_name = old_team.name
+                
+                # 플레이어를 이전 팀에서 뺌
+                player.team = None
+                player.save()
+                
+                # 만약 내가 나갔는데 이전 팀에 남은 멤버가 0명이라면? -> 폭파 예약
+                if old_team.players.count() == 0:
+                    deleted_team_name = old_team.name
+                    old_team.delete()
+            
+            # 2. 새 팀 생성 (본인이 방장 기록됨)
+            new_team = Team.objects.create(name=t_name, leader_discord_id=d_id)
             player.team = new_team
             player.save()
             
-            return True, (player.riot_id, new_team.name)
+            return True, (player.riot_id, new_team.name, old_team_name, deleted_team_name)
             
         except Player.DoesNotExist:
-            return False, "❌ DB에 등록된 참가자가 아닙니다. 주최자에게 먼저 등록을 요청하세요."
+            return False, "❌ DB에 등록된 참가자가 아닙니다. 참가 신청을 먼저 해주세요."
         except Exception as e:
             return False, f"❌ 시스템 오류 발생: {str(e)}"
 
-    # 봇이 생각할 시간 벌기
     await interaction.response.defer()
-    
-    # DB 처리 함수 실행
-    success, result = await process_create_team(user_id, team_name.strip())
-    
+
+    success, result = await process_create_team(str(interaction.user.id), team_name)
+
     if success:
-        riot_id, new_team_name = result
+        riot_id, new_team_name, old_team_name, deleted_team_name = result
         guild = interaction.guild
+        member = interaction.user
         
         # ==========================================
-        # 🚨 [추가 1] 팀 역할(Role) 자동 생성 및 부여
+        # 🚨 [1] 이전 팀 역할 회수 및 빈 팀 폭파 처리
         # ==========================================
-        role = discord.utils.get(guild.roles, name=new_team_name)
-        if not role:
-            # mentionable=True 로 설정해서 @팀이름 태그 가능하게 만듦!
-            role = await guild.create_role(name=new_team_name, mentionable=True, reason="임시 팀 창단")
-        await interaction.user.add_roles(role)
+        if old_team_name:
+            old_role = discord.utils.get(guild.roles, name=old_team_name)
+            if old_role:
+                try:
+                    await member.remove_roles(old_role)
+                except Exception as e:
+                    print(f"역할 회수 오류: {e}")
+                    
+        if deleted_team_name:
+            channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{deleted_team_name}")
+            if channel_to_delete:
+                try:
+                    await channel_to_delete.delete()
+                except Exception as e:
+                    print(f"이전 채널 삭제 오류: {e}")
+            
+            role_to_delete = discord.utils.get(guild.roles, name=deleted_team_name)
+            if role_to_delete:
+                try:
+                    await role_to_delete.delete()
+                except Exception as e:
+                    print(f"이전 역할 삭제 오류: {e}")
 
         # ==========================================
-        # 🚨 [추가 2] 임시 스크림 보이스 채널 자동 생성
+        # 🚨 [2] 새 팀 역할 생성 및 부여
+        # ==========================================
+        new_role = discord.utils.get(guild.roles, name=new_team_name)
+        if not new_role:
+            new_role = await guild.create_role(name=new_team_name, mentionable=True, reason="임시 팀 창단")
+        await member.add_roles(new_role)
+
+        # ==========================================
+        # 🚨 [3] 임시 스크림 보이스 채널 생성 (강력한 방장 권한 세팅)
         # ==========================================
         category_name = "🔄 임시 스크림 룸"
         category = discord.utils.get(guild.categories, name=category_name)
@@ -881,22 +911,43 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
             
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True),
-            role: discord.PermissionOverwrite(move_members=True) # 팀장(팀원)에게 킥 권한 부여
+            new_role: discord.PermissionOverwrite(
+                manage_channels=True,
+                move_members=True,
+                mute_members=True,
+                deafen_members=True
+            )
         }
             
         try:
-            # 채널 만들 때 overwrites 옵션 추가
             await guild.create_voice_channel(name=f"🔊-{new_team_name}", category=category, overwrites=overwrites)
         except Exception as e:
-            print(f"채널 생성 오류: {e}")
+            print(f"새 채널 생성 오류: {e}")
             
-        # 빰빠빰! 성공 임베드 메시지
+        # ==========================================
+        # 🚨 [4] 성공 메시지 전송 (탈퇴 알림 포함)
+        # ==========================================
         embed = discord.Embed(title="🎊 신규 팀 창단 완료!", color=0xF1C40F)
         embed.description = f"**{riot_id}** 님이 새로운 팀을 창단했습니다!"
-        embed.add_field(name="[ 팀 이름 ]", value=f"{role.mention}", inline=False) # 멘션으로 예쁘게 표시
+        
+        # 이전 팀이 있었다면 표시해줌
+        if old_team_name:
+            embed.add_field(name="[ 이전 소속 ]", value=f"~~{old_team_name}~~ (탈퇴)", inline=True)
+            embed.add_field(name="➡️", value=" ", inline=True)
+            
+        embed.add_field(name="[ 신규 팀 이름 ]", value=f"{new_role.mention}", inline=True)
+        
+        # 이전 팀이 터졌다면 알려줌
+        if deleted_team_name:
+            embed.add_field(
+                name="💥 구 팀 해체 알림", 
+                value=f"기존에 속해있던 **{deleted_team_name}** 팀에 남은 멤버가 없어 시스템에 의해 자동 해체(삭제)되었습니다.", 
+                inline=False
+            )
+            
         embed.add_field(
             name="[ 안내 ]", 
-            value=f"이제 다른 참가자들이 `/팀가입`을 통해 합류할 수 있습니다.\n**임시 통화방(`🔊-{new_team_name}`)**과 **팀 전용 역할**이 지급되었습니다!", 
+            value=f"이제 다른 참가자들이 `/팀가입`을 통해 합류할 수 있습니다.\n**임시 통화방(`🔊-{new_team_name}`)**과 👑 **채널 관리 권한**이 부여되었습니다!", 
             inline=False
         )
         embed.set_footer(text="팀장님, 멋진 로스터를 꾸려 우승을 차지해 보세요!")
@@ -1271,9 +1322,14 @@ async def restore_voice_channels(interaction: discord.Interaction):
 
             # 2. 👑 팀 전용 킥 권한(오버라이드) 세팅
             overwrites = {
-                guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True), # 일반인은 들어올 수 있음
-                role: discord.PermissionOverwrite(move_members=True) # 👑 해당 팀원은 남을 킥(연결 끊기) 할 수 있음!
-            }
+            guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=True), # 일반인은 접속 가능
+            role: discord.PermissionOverwrite(
+                manage_channels=True,  # 방 이름 변경, 인원수 제한 등 채널 자체 관리 권한
+                move_members=True,     # 다른 통화방으로 이동 및 연결 끊기(킥) 권한
+                mute_members=True,     # 상대방 마이크 강제 음소거 권한
+                deafen_members=True    # 상대방 헤드셋 강제 뮤트 권한
+            )
+        }
                 
             # 3. 🔊 보이스 채널 복구 및 권한 부여
             channel_name = f"🔊-{team_name}"
@@ -1320,6 +1376,98 @@ async def restore_voice_channels(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ 시스템 오류 발생: {e}")
 
 # ==========================================
+# /팀삭제 슬래시 명령어 (팀 완전 해체 및 전원 FA 전환)
+# ==========================================
+@bot.tree.command(name="팀삭제", description="본인이 속한 팀을 완전히 해체합니다. (팀원 전원 FA 전환 및 채널 폭파)")
+async def delete_team_slash(interaction: discord.Interaction):
+    if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    global TEAM_JOIN_LOCKED
+    if TEAM_JOIN_LOCKED:
+        await interaction.response.send_message("❌ 이적 시장이 종료되어 더 이상 팀을 해체할 수 없습니다.", ephemeral=True)
+        return
+
+    user_id = str(interaction.user.id)
+
+    @sync_to_async
+    def process_delete_team(d_id):
+        from django.db import close_old_connections
+        close_old_connections()
+        from tournament.models import Player
+        try:
+            player = Player.objects.get(discord_user_id=d_id)
+            if not player.team:
+                return False, "❌ 소속된 팀이 없어 해체할 수 없습니다."
+            
+            team = player.team
+            team_name = team.name
+
+            if team.leader_discord_id and team.leader_discord_id != d_id:
+                return False, f"❌ 권한 없음: **{team_name}** 팀을 최초로 창단한 '팀장'만 팀을 해체할 수 있습니다."
+            
+            # 1. 팀에 속한 모든 유저를 무소속(FA)으로 변경
+            players_in_team = team.players.all()
+            member_riot_ids = [p.riot_id for p in players_in_team] # 해체 알림을 위해 이름들 저장
+            
+            for p in players_in_team:
+                p.team = None
+                p.save()
+            
+            # 2. 팀 DB 폭파
+            team.delete()
+            
+            return True, (team_name, member_riot_ids)
+            
+        except Player.DoesNotExist:
+            return False, "❌ DB에 등록된 참가자가 아닙니다."
+        except Exception as e:
+            return False, f"❌ 시스템 오류 발생: {str(e)}"
+
+    # 봇 생각할 시간 벌기
+    await interaction.response.defer()
+
+    success, result = await process_delete_team(user_id)
+
+    if success:
+        team_name, member_riot_ids = result
+        guild = interaction.guild
+        
+        # ==========================================
+        # 🚨 삭제된 팀의 임시 통화방 & 역할 자동 폭파!
+        # ==========================================
+        # 1) 채널 삭제
+        channel_to_delete = discord.utils.get(guild.voice_channels, name=f"🔊-{team_name}")
+        if channel_to_delete:
+            try:
+                await channel_to_delete.delete()
+            except Exception as e:
+                print(f"채널 삭제 오류: {e}")
+        
+        # 2) 역할(Role) 삭제 (역할을 지우면 멤버들에게서도 자동으로 다 사라짐!)
+        role_to_delete = discord.utils.get(guild.roles, name=team_name)
+        if role_to_delete:
+            try:
+                await role_to_delete.delete()
+            except Exception as e:
+                print(f"역할 삭제 오류: {e}")
+
+        # 폭파 성공 메시지 전송
+        embed = discord.Embed(title="💥 팀 공식 해체", color=0xE74C3C)
+        embed.description = f"**{team_name}** 팀이 공식적으로 해체되었습니다."
+        embed.add_field(
+            name="[ FA 전환 명단 ]", 
+            value=", ".join(member_riot_ids) if member_riot_ids else "없음", 
+            inline=False
+        )
+        embed.set_footer(text="해당 팀의 통화방과 역할이 모두 삭제되었습니다. 참가자들은 새로운 팀에 가입해 주세요.")
+        
+        await interaction.followup.send(embed=embed)
+    else:
+        await interaction.followup.send(result, ephemeral=True)
+
+# ==========================================
 # /공지배포 슬래시 명령어 (관리자 전용) - 최종 룰북 & 배너 가이드 포함
 # ==========================================
 @bot.tree.command(name="공지배포", description="[관리자 전용] 공식 채널에 시스템 봇 이름으로 공지사항 및 가이드를 배포합니다.")
@@ -1333,6 +1481,7 @@ async def restore_voice_channels(interaction: discord.Interaction):
     app_commands.Choice(name="6. 봇 사용법 공지", value="bot_guide"),
     app_commands.Choice(name="7. [가이드] 자기소개 작성 방법", value="guide_intro"),
     app_commands.Choice(name="8. [필독] 참가비 납부 안내", value="fee_notice"),
+    app_commands.Choice(name="9. [업데이트] 시스템 봇 패치 노트", value="bot_update"),
 ])
 @app_commands.default_permissions(administrator=True)
 async def send_official_notice(interaction: discord.Interaction, notice_type: str):
@@ -1578,6 +1727,46 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
             inline=False
         )
         embed.set_footer(text="* 입금 확인 시 관리자가 수동으로 시스템에 반영합니다.")
+
+    elif notice_type == "bot_update":
+        embed = discord.Embed(
+            title="🤖 [ SYSTEM UPDATE: BOT PATCH NOTES ]",
+            description="원활한 대회 준비와 자유로운 이적 시장(FA) 및 스크림 환경 조성을 위해 시스템 봇의 신규 기능이 대폭 업데이트되었습니다.",
+            color=0x2ECC71 # 업데이트 느낌을 주는 쨍한 초록색
+        )
+        
+        embed.add_field(
+            name="🗑️ [ 신규 명령어: /팀삭제 (팀장 전용) ]",
+            value=(
+                "- **기능:** 본인이 창단한 팀을 즉각 완전히 해체합니다.\n"
+                "- **효과:** 소속되어 있던 팀원 전원이 **FA(무소속)로 자동 전환**되며, 기존 팀의 임시 스크림 통화방과 역할(태그)이 서버에서 영구 삭제됩니다."
+            ),
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🚀 [ 기능 개선: /팀생성 (자동 이적 시스템 적용) ]",
+            value=(
+                "- **기능:** 기존 팀에 소속된 상태라도 제약 없이 **즉시 새로운 팀을 창단**할 수 있게 되었습니다.\n"
+                "- **효과:** 명령어 입력 시 이전 팀에서는 **자동으로 탈퇴 처리**되며, 본인이 나간 후 이전 팀의 남은 멤버가 0명이 될 경우 해당 팀과 통화방은 시스템이 알아서 폭파(삭제)합니다."
+            ),
+            inline=False
+        )
+        
+        embed.add_field(
+            name="👑 [ 권한 부여: 팀 스크림방 자치권 (방장 권한) ]",
+            value=(
+                "- `/팀생성` 시 자동으로 개설되는 임시 통화방(`🔊-팀이름`)에 외부인 통제를 위한 **팀원 전용 관리 권한**이 강력하게 부여됩니다.\n\n"
+                "**[ 🛠️ 행사 가능한 권한 목록 ]**\n"
+                "✅ **통화방 관리:** 방 이름 변경 및 인원수 제한\n"
+                "✅ **멤버 이동:** 다른 사용자의 연결 끊기(강제 퇴장/킥)\n"
+                "✅ **마이크/헤드셋 제어:** 시끄러운 관전자의 마이크 강제 음소거 및 듣기 차단\n\n"
+                "👉 스크림 진행 중 타 팀원이나 관전자가 방해할 경우, 우클릭을 통해 직접 권한을 행사하여 쾌적한 스크림 환경을 조성하세요."
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text="* 현재 이미 생성된 팀들의 방에도 해당 권한과 시스템이 일괄 동기화되었습니다.")
 
     # 봇이 메시지를 보내기 전에 생각할 시간 벌기
     await interaction.response.defer(ephemeral=True)

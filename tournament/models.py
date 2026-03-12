@@ -9,6 +9,7 @@ class Team(models.Model):
     group = models.CharField(max_length=1, choices=GROUP_CHOICES, null=True, blank=True, verbose_name="소속 그룹")
     wins = models.IntegerField(default=0, verbose_name="승리")
     losses = models.IntegerField(default=0, verbose_name="패배")
+    leader_discord_id = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         group_label = f"[{self.group}] " if self.group else ""
