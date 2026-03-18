@@ -54,7 +54,7 @@
       "discord_user_id": "556516771922837506", 
       "tier": 2, 
       "team": null, 
-      "highest_rank": "Diamond 3", 
+      "highest_rank": "Emerald 4", 
       "solo_rank": null, 
       "main_position": "ADC", 
       "sub_position": "TOP" 
@@ -407,8 +407,8 @@
       "team": null, 
       "highest_rank": "Platinum 4", 
       "solo_rank": "Silver 4", 
-      "main_position": "JGL", 
-      "sub_position": "TOP",
+      "main_position": "TOP", 
+      "sub_position": "JGL",
       "note": "서폿 가능"
     }
   },

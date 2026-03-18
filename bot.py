@@ -556,11 +556,11 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
-# /팀확정 슬래시 명령어 (관리자 전용) - 카테고리/채널 자동 생성 포함
+# /팀확정 슬래시 명령어 (시스템 드래프트 + 채널 자동 생성)
 # ==========================================
 TEAM_JOIN_LOCKED = False 
 
-@bot.tree.command(name="팀확정", description="[관리자 전용] 팀선택 마감, 역할 부여 및 팀별 비밀 채널을 자동 생성합니다.")
+@bot.tree.command(name="팀확정", description="[관리자 전용] 이적 시장을 마감하고, 미완성 팀을 자동 완성 및 확정합니다.")
 @app_commands.default_permissions(administrator=True)
 async def confirm_teams_slash(interaction: discord.Interaction):
     global TEAM_JOIN_LOCKED
@@ -570,38 +570,111 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.response.send_message("❌ 이 명령어는 디스코드 서버 안에서만 사용할 수 있습니다.", ephemeral=True)
         return
 
+    # 봇이 계산할 시간이 많이 필요하므로 대기 상태로 전환
     await interaction.response.defer()
 
-    # DB에서 팀과 해당 팀원들의 디스코드 ID 가져오기
+    # ==========================================
+    # 🚨 [ STEP 1 ] 시스템 강제 드래프트 (미완성 팀 조립)
+    # ==========================================
     @sync_to_async
-    def get_teams_and_players():
+    def auto_draft_teams():
+        from django.db import close_old_connections
+        close_old_connections()
+        from tournament.models import Team, Player
+        from django.db.models import Count
+        import random
+
+        draft_logs = []
+        
+        # 1. 현재 팀 현황 파악 (인원수 기준 내림차순 정렬: 4명 -> 3명 -> 2명 -> 1명)
+        teams = list(Team.objects.annotate(p_count=Count('players')).order_by('-p_count'))
+        incomplete_teams = [t for t in teams if t.p_count < 5]
+
+        # 2. 2명 이하인 소수 팀 강제 해체 (듀오 찢기)
+        teams_to_destroy = [t for t in incomplete_teams if t.p_count <= 2]
+        for t in teams_to_destroy:
+            for p in t.players.all():
+                p.team = None
+                p.save()
+            draft_logs.append(f"💥 **{t.name}** 팀 (인원 부족으로 시스템 강제 해체 ➡️ 전원 FA 전환)")
+            incomplete_teams.remove(t)
+            t.delete()
+
+        # 3. FA 풀 가져오기 및 셔플 (랜덤성 보장)
+        fa_players = list(Player.objects.filter(team__isnull=True))
+        random.shuffle(fa_players)
+
+        # 4. 3~4명인 팀에 FA 강제 할당 (티어 기반)
+        for team in incomplete_teams:
+            current_players = list(team.players.all())
+            current_tiers = [p.tier for p in current_players]
+            
+            while team.players.count() < 5 and fa_players:
+                # 팀에 없는 티어 찾기 (1~5 중 없는 것)
+                needed_tiers = [t for t in [1, 2, 3, 4, 5] if t not in current_tiers]
+                
+                assigned_player = None
+                if needed_tiers:
+                    # 필요한 티어와 일치하는 FA가 있는지 검색
+                    for t in needed_tiers:
+                        candidates = [p for p in fa_players if p.tier == t]
+                        if candidates:
+                            assigned_player = random.choice(candidates)
+                            break
+                
+                # 일치하는 티어가 없으면 남은 FA 중 완전 무작위 배정
+                if not assigned_player:
+                    assigned_player = fa_players[0]
+
+                # 팀 배정 실행
+                assigned_player.team = team
+                assigned_player.save()
+                fa_players.remove(assigned_player)
+                current_tiers.append(assigned_player.tier)
+                
+                draft_logs.append(f"🔄 **[시스템 배정]** `{assigned_player.riot_id}` (Tier {assigned_player.tier}) ➡️ **{team.name}** 강제 합류")
+
+        # 5. 남은 FA들로 새로운 팀 생성 (5명씩)
+        new_team_count = 1
+        while len(fa_players) >= 5:
+            new_team_name = f"FA 연합 {new_team_count}팀"
+            new_team = Team.objects.create(name=new_team_name)
+            draft_logs.append(f"✨ **[신규 팀 창단]** FA 잔류 인원으로 **{new_team_name}**이(가) 결성되었습니다.")
+            
+            for _ in range(5):
+                p = fa_players.pop(0)
+                p.team = new_team
+                p.save()
+                draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
+            new_team_count += 1
+
+        return draft_logs
+
+    # ==========================================
+    # 🚨 [ STEP 2 ] 기존의 팀 확정 및 채널 생성 로직
+    # ==========================================
+    @sync_to_async
+    def get_final_teams():
         from django.db import close_old_connections
         close_old_connections()
         from tournament.models import Team
         teams = list(Team.objects.prefetch_related('players').all())
-        team_data = []
-        for t in teams:
-            p_ids = [p.discord_user_id for p in t.players.all()]
-            team_data.append((t.name, p_ids))
-        return team_data
+        return [(t.name, [p.discord_user_id for p in t.players.all()]) for t in teams]
 
     try:
-        teams_data = await get_teams_and_players()
-        log_msgs = []
+        # 먼저 시스템 드래프트 돌리기
+        draft_results = await auto_draft_teams()
+        
+        # 드래프트가 끝난 최종 팀 명단 가져오기
+        teams_data = await get_final_teams()
+        setup_logs = []
 
         for team_name, player_ids in teams_data:
-            # 1. 역할(Role) 확인 및 생성
+            # 1. 역할 생성 및 부여
             role = discord.utils.get(guild.roles, name=team_name)
             if not role:
-                role = await guild.create_role(
-                    name=team_name, 
-                    hoist=True, 
-                    mentionable=True, 
-                    reason="TÆKTUBE 팀 확정 자동 생성"
-                )
-                log_msgs.append(f"✨ `{team_name}` 역할 생성 완료")
-
-            # 2. 팀원들에게 역할 부여
+                role = await guild.create_role(name=team_name, hoist=True, mentionable=True, reason="팀 확정")
+            
             assigned_count = 0
             for d_id in player_ids:
                 member = guild.get_member(int(d_id))
@@ -614,65 +687,59 @@ async def confirm_teams_slash(interaction: discord.Interaction):
                 if member and role not in member.roles:
                     await member.add_roles(role)
                     assigned_count += 1
-            
-            log_msgs.append(f"👥 `{team_name}` {assigned_count}명 역할 부여 완료")
+            setup_logs.append(f"📁 `{team_name}` 채널 및 역할 세팅 완료 ({len(player_ids)}명)")
 
-            # ==========================================
-            # 🎯 3. 프라이빗 카테고리 & 채널 자동 생성 파트 (팬 소통방 & 권한 위임)
-            # ==========================================
+            # 2. 카테고리 및 채널 생성 (기존과 동일하게 권한 빡세게!)
             category_name = f"[ {team_name} ]"
             category = discord.utils.get(guild.categories, name=category_name)
             
-            # [ 1. 작전실 권한 ]: 아무도 못 보고 팀원만 볼 수 있음
             txt_overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=False),
                 role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
-
-            # [ 2. 보이스 채널 권한 (👑 핵심: 선수들에게 관리 권한 부여!) ]
             vc_overwrites = {
-                guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=False), # 남들은 보이지만 접속 불가
+                guild.default_role: discord.PermissionOverwrite(view_channel=True, connect=False),
                 role: discord.PermissionOverwrite(
-                    view_channel=True, 
-                    connect=True, 
-                    speak=True, 
-                    move_members=True,     # 👑 팀원이 다른 사람을 '연결 끊기(추방)' 가능!
-                    manage_channels=True   # 👑 팀원이 우클릭해서 '인원수 제한' 변경 가능!
+                    view_channel=True, connect=True, speak=True, 
+                    move_members=True, manage_channels=True
                 )
             }
-
-            # [ 3. 팬 소통방 권한 ]: 모두가 볼 수 있고 채팅 가능
             fan_overwrites = {
                 guild.default_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
             }
 
             if not category:
                 category = await guild.create_category(name=category_name)
-                
-                # 채널 3개 생성 (작전실, 보이스, 팬 소통방)
                 await guild.create_text_channel(name="🔒전략-회의", category=category, overwrites=txt_overwrites)
                 await guild.create_text_channel(name="💬참가-요청", category=category, overwrites=fan_overwrites)
                 await guild.create_voice_channel(name="🔊-보이스", category=category, overwrites=vc_overwrites)
-                
-                log_msgs.append(f"📁 `{team_name}` 전용 채널 및 팬 소통방 세팅 완료 (팀원에게 관리 권한 위임)")
 
-        # 4. 탕치기 잠금 스위치 ON
+        # 3. 이적 시장 잠금!
         TEAM_JOIN_LOCKED = True
 
-        # 5. 결과창 띄우기
-        result_text = "\n".join(log_msgs)
-        embed = discord.Embed(title="🔒 팀 확정 & 채널 세팅 완료!", color=0xE74C3C)
-        embed.description = (
-            f"**이적 시장이 종료되었으며, 각 팀의 비밀 작전실이 오픈되었습니다.**\n"
-            f"더 이상 `/팀가입`을 사용할 수 없습니다.\n\n"
-            f"**[처리 결과]**\n{result_text}"
+        # 4. 화려한 결과 임베드 출력
+        embed = discord.Embed(
+            title="🔒 [ 이적 시장 종료 & 최종 로스터 확정 ]", 
+            description="**이적 시장이 완전히 마감되었으며, 미완성 팀에 대한 시스템 강제 재배치가 완료되었습니다.**\n더 이상 `/팀가입`, `/팀생성`을 사용할 수 없습니다.",
+            color=0xE74C3C
         )
-        embed.set_footer(text="참가자들은 본인 팀의 채널이 잘 보이는지 확인해 주세요!")
+        
+        # 드래프트 로그가 있으면 임베드에 추가해서 보여주기!
+        if draft_results:
+            draft_text = "\n".join(draft_results)
+            # 글자가 너무 길면 잘릴 수 있으므로 나눠서 처리
+            if len(draft_text) > 1024:
+                draft_text = draft_text[:1000] + "\n... (이하 생략)"
+            embed.add_field(name="🤖 [ 시스템 강제 재배치 결과 (System Draft) ]", value=draft_text, inline=False)
+            
+        setup_text = "\n".join(setup_logs)
+        embed.add_field(name="✅ [ 채널 세팅 현황 ]", value=setup_text, inline=False)
+        embed.set_footer(text="* 시스템의 결정은 절대적이며, 번복되지 않습니다.")
         
         await interaction.followup.send(embed=embed)
 
     except discord.Forbidden:
-        await interaction.followup.send("❌ 봇에게 권한이 부족합니다! 서버 설정에서 봇의 역할을 최상단으로 올리고, '채널 관리' 및 '역할 관리' 권한을 주세요.")
+        await interaction.followup.send("❌ 봇 권한이 부족합니다! 서버 설정에서 역할을 위로 올려주세요.")
     except Exception as e:
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
 
@@ -1730,43 +1797,36 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
 
     elif notice_type == "bot_update":
         embed = discord.Embed(
-            title="🤖 [ SYSTEM UPDATE: BOT PATCH NOTES ]",
-            description="원활한 대회 준비와 자유로운 이적 시장(FA) 및 스크림 환경 조성을 위해 시스템 봇의 신규 기능이 대폭 업데이트되었습니다.",
-            color=0x2ECC71 # 업데이트 느낌을 주는 쨍한 초록색
+            title="🤖 [ SYSTEM UPDATE: V2.0 AUTO-DRAFT ENGINE ]",
+            description="이적 시장 마감 시 발생하는 '미완성 팀' 문제를 해결하기 위해, 시스템 봇에 **[ 팀 완성도 비례 우선 배정 알고리즘 ]**이 탑재되었습니다.",
+            color=0x2ECC71
         )
         
         embed.add_field(
-            name="🗑️ [ 신규 명령어: /팀삭제 (팀장 전용) ]",
+            name="💥 [ 1단계: 소수 인원 팀 강제 해체 ]",
             value=(
-                "- **기능:** 본인이 창단한 팀을 즉각 완전히 해체합니다.\n"
-                "- **효과:** 소속되어 있던 팀원 전원이 **FA(무소속)로 자동 전환**되며, 기존 팀의 임시 스크림 통화방과 역할(태그)이 서버에서 영구 삭제됩니다."
+                "- `/팀확정` 명령어가 실행되는 즉시, **2명 이하로 구성된 미완성 팀은 시스템에 의해 자비 없이 강제 폭파**됩니다.\n"
+                "- 해당 팀에 소속되어 있던 인원(듀오 포함)은 전원 무소속(FA) 풀로 이동되며, **순서가 무작위로 섞입니다(Random Shuffle).**"
             ),
             inline=False
         )
         
         embed.add_field(
-            name="🚀 [ 기능 개선: /팀생성 (자동 이적 시스템 적용) ]",
+            name="🎯 [ 2단계: 적극성 우선 FA 배정 ]",
             value=(
-                "- **기능:** 기존 팀에 소속된 상태라도 제약 없이 **즉시 새로운 팀을 창단**할 수 있게 되었습니다.\n"
-                "- **효과:** 명령어 입력 시 이전 팀에서는 **자동으로 탈퇴 처리**되며, 본인이 나간 후 이전 팀의 남은 멤버가 0명이 될 경우 해당 팀과 통화방은 시스템이 알아서 폭파(삭제)합니다."
+                "- **3명~4명을 모아둔 적극적인 팀**에게 남은 FA 인원을 우선 배정하여 5인 로스터를 완성시킵니다.\n"
+                "- 배정 시 기존 팀원들의 티어를 스캔하여 **부족한 티어에 맞는 FA를 찾아 1순위로 꽂아 넣습니다.** (해당 티어가 없으면 무작위 배정)"
             ),
             inline=False
         )
         
         embed.add_field(
-            name="👑 [ 권한 부여: 팀 스크림방 자치권 (방장 권한) ]",
-            value=(
-                "- `/팀생성` 시 자동으로 개설되는 임시 통화방(`🔊-팀이름`)에 외부인 통제를 위한 **팀원 전용 관리 권한**이 강력하게 부여됩니다.\n\n"
-                "**[ 🛠️ 행사 가능한 권한 목록 ]**\n"
-                "✅ **통화방 관리:** 방 이름 변경 및 인원수 제한\n"
-                "✅ **멤버 이동:** 다른 사용자의 연결 끊기(강제 퇴장/킥)\n"
-                "✅ **마이크/헤드셋 제어:** 시끄러운 관전자의 마이크 강제 음소거 및 듣기 차단\n\n"
-                "👉 스크림 진행 중 타 팀원이나 관전자가 방해할 경우, 우클릭을 통해 직접 권한을 행사하여 쾌적한 스크림 환경을 조성하세요."
-            ),
+            name="🏗️ [ 3단계: FA 연합 팀 창단 ]",
+            value="- 기존 팀들의 빈자리를 모두 채우고도 남은 FA 인원들은 시스템이 5명씩 무작위로 묶어 **'FA 연합 팀'**을 강제 창단합니다.",
             inline=False
         )
         
-        embed.set_footer(text="* 현재 이미 생성된 팀들의 방에도 해당 권한과 시스템이 일괄 동기화되었습니다.")
+        embed.set_footer(text="* 시스템의 무작위 배정 결과는 절대적이며, 어떠한 이의도 받지 않습니다.")
 
     # 봇이 메시지를 보내기 전에 생각할 시간 벌기
     await interaction.response.defer(ephemeral=True)
