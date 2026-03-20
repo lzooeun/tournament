@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from collections import defaultdict
 from django.db.models import Q
+from django.http import HttpResponse
 from .models import Player, Team, Match
 
 def get_standings(group_name):
@@ -126,3 +127,6 @@ def home(request):
         'group_a_standings': group_a_standings,
         'group_b_standings': group_b_standings,
     })
+
+def server_ping(request):
+    return HttpResponse("OK")
