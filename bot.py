@@ -554,6 +554,7 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
         await interaction.followup.send(embed=embed)
     else:
         await interaction.followup.send(result, ephemeral=True)
+        
 
 # ==========================================
 # /팀확정 슬래시 명령어 (시스템 드래프트 + 채널 자동 생성)
@@ -1021,6 +1022,104 @@ async def create_team_slash(interaction: discord.Interaction, team_name: str):
         
         await interaction.followup.send(embed=embed)
     else:
+        await interaction.followup.send(result, ephemeral=True)
+
+# ==========================================
+# /팀명변경 슬래시 명령어 (이적 시장 한정, 누구나 변경 가능)
+# ==========================================
+@bot.tree.command(name="팀명변경", description="소속된 팀의 이름을 변경합니다. (이적 시장 기간 한정)")
+@app_commands.describe(new_team_name="새로운 팀 이름을 입력하세요 (최대 30자)")
+async def rename_team_slash(interaction: discord.Interaction, new_team_name: str):
+    # 1. 지정된 채널인지 확인
+    if interaction.channel_id != TEAM_JOIN_CHANNEL_ID:
+        await interaction.response.send_message(f"❌ 이 명령어는 <#{TEAM_JOIN_CHANNEL_ID}> 채널에서만 사용할 수 있습니다.", ephemeral=True)
+        return
+
+    # 2. 이적 시장 마감 여부 확인
+    global TEAM_JOIN_LOCKED
+    if TEAM_JOIN_LOCKED:
+        await interaction.response.send_message("❌ 이적 시장 및 로스터가 확정되어 더 이상 팀 이름을 변경할 수 없습니다.", ephemeral=True)
+        return
+
+    user_id = str(interaction.user.id)
+
+    # 3. DB 로직 처리 (비동기)
+    @sync_to_async
+    def process_rename_team(d_id, new_name):
+        from django.db import close_old_connections
+        close_old_connections()
+        from tournament.models import Player, Team
+        try:
+            if len(new_name) > 50:
+                return False, "❌ 팀 이름은 최대 50자까지만 설정할 수 있습니다."
+
+            player = Player.objects.get(discord_user_id=d_id)
+            
+            if not player.team:
+                return False, "❌ 소속된 팀이 없습니다. 먼저 팀을 생성하거나 가입해주세요."
+                
+            team = player.team
+            old_name = team.name
+
+            # 기존 이름과 똑같이 입력한 경우
+            if old_name == new_name:
+                return False, "⚠️ 기존과 동일한 이름입니다."
+
+            # 중복 이름 검사 (대소문자 무시하고 겹치는지 확인)
+            if Team.objects.filter(name__iexact=new_name).exists():
+                return False, f"❌ **{new_name}** (이)라는 이름의 팀이 이미 존재합니다. 다른 이름을 골라주세요."
+
+            # 검문 통과! DB에 새 이름 저장
+            team.name = new_name
+            team.save()
+
+            return True, (old_name, new_name, player.riot_id)
+
+        except Player.DoesNotExist:
+            return False, "❌ DB에 등록된 참가자가 아닙니다."
+        except Exception as e:
+            return False, f"❌ 시스템 오류 발생: {str(e)}"
+
+    # 봇이 3초 안에 응답 못해서 터지는 거 방지!
+    await interaction.response.defer()
+
+    success, result = await process_rename_team(user_id, new_team_name)
+
+    if success:
+        old_name, new_name, riot_id = result
+        guild = interaction.guild
+
+        # ==========================================
+        # 🚨 [ 디스코드 연동 ] 역할(Role) & 통화방 이름 즉시 변경
+        # ==========================================
+        # 1) 기존 역할 이름 변경
+        role = discord.utils.get(guild.roles, name=old_name)
+        if role:
+            try:
+                await role.edit(name=new_name)
+            except Exception as e:
+                print(f"역할 이름 변경 오류: {e}")
+
+        # 2) 기존 보이스 채널 이름 변경
+        voice_channel = discord.utils.get(guild.voice_channels, name=f"🔊-{old_name}")
+        if voice_channel:
+            try:
+                await voice_channel.edit(name=f"🔊-{new_name}")
+            except Exception as e:
+                print(f"통화방 이름 변경 오류: {e}")
+
+        # 성공 메시지 전송
+        embed = discord.Embed(title="🏷️ 팀 이름 변경 완료!", color=0x3498DB)
+        embed.description = f"**{riot_id}** 님의 요청으로 팀 이름이 성공적으로 변경되었습니다."
+        embed.add_field(name="[ 기존 이름 ]", value=f"~~{old_name}~~", inline=True)
+        embed.add_field(name="➡️", value=" ", inline=True)
+        embed.add_field(name="[ 새로운 이름 ]", value=f"{role.mention if role else f'**{new_name}**'}", inline=True)
+        
+        embed.set_footer(text="웹사이트와 소속 팀원들의 역할, 통화방 이름에 즉시 반영되었습니다.")
+        
+        await interaction.followup.send(embed=embed)
+    else:
+        # 실패 시 에러 메시지 전송 (본인에게만 보임)
         await interaction.followup.send(result, ephemeral=True)
 
 # ==========================================
@@ -1797,36 +1896,30 @@ async def send_official_notice(interaction: discord.Interaction, notice_type: st
 
     elif notice_type == "bot_update":
         embed = discord.Embed(
-            title="🤖 [ SYSTEM UPDATE: V2.0 AUTO-DRAFT ENGINE ]",
-            description="이적 시장 마감 시 발생하는 '미완성 팀' 문제를 해결하기 위해, 시스템 봇에 **[ 팀 완성도 비례 우선 배정 알고리즘 ]**이 탑재되었습니다.",
+            title="🤖 [ SYSTEM UPDATE: V2.1 TEAM RENAME ]",
+            description="이적 시장 기간 동안 소속 팀의 이름을 자유롭게 변경할 수 있는 신규 기능이 탑재되었습니다.",
             color=0x2ECC71
         )
         
         embed.add_field(
-            name="💥 [ 1단계: 소수 인원 팀 강제 해체 ]",
+            name="🏷️ [ 신규 명령어: /팀명변경 ]",
             value=(
-                "- `/팀확정` 명령어가 실행되는 즉시, **2명 이하로 구성된 미완성 팀은 시스템에 의해 자비 없이 강제 폭파**됩니다.\n"
-                "- 해당 팀에 소속되어 있던 인원(듀오 포함)은 전원 무소속(FA) 풀로 이동되며, **순서가 무작위로 섞입니다(Random Shuffle).**"
+                "- **사용법:** 채팅창에 `/팀명변경 [새로운 팀명]`을 입력하세요. (최대 50자이지만, 너무 길지 않게 부탁드립니다.)\n"
+                "- **사용 권한:** 방장뿐만 아니라 **소속 팀원이라면 누구나** 명령어를 사용할 수 있습니다."
             ),
             inline=False
         )
         
         embed.add_field(
-            name="🎯 [ 2단계: 적극성 우선 FA 배정 ]",
+            name="🚨 [ 필수 주의사항 & 예외 처리 ]",
             value=(
-                "- **3명~4명을 모아둔 적극적인 팀**에게 남은 FA 인원을 우선 배정하여 5인 로스터를 완성시킵니다.\n"
-                "- 배정 시 기존 팀원들의 티어를 스캔하여 **부족한 티어에 맞는 FA를 찾아 1순위로 꽂아 넣습니다.** (해당 티어가 없으면 무작위 배정)"
+                "- 해당 명령어는 기본적으로 **로스터 확정(이적 시장 마감) 전까지만** 사용할 수 있습니다.\n"
+                "- 마감 이후에는 시스템 상 팀 이름이 고정(Lock)되나, **불가피하게 팀명 변경이 필요한 경우 관리자에게 개별 문의**해 주시면 상의 후 예외적으로 처리해 드리겠습니다."
             ),
             inline=False
         )
         
-        embed.add_field(
-            name="🏗️ [ 3단계: FA 연합 팀 창단 ]",
-            value="- 기존 팀들의 빈자리를 모두 채우고도 남은 FA 인원들은 시스템이 5명씩 무작위로 묶어 **'FA 연합 팀'**을 강제 창단합니다.",
-            inline=False
-        )
-        
-        embed.set_footer(text="* 시스템의 무작위 배정 결과는 절대적이며, 어떠한 이의도 받지 않습니다.")
+        embed.set_footer(text="* 팀확정까지 시간이 얼마 남지 않았습니다. 팀가입 및 팀명 설정을 서둘러주세요!")
 
     # 봇이 메시지를 보내기 전에 생각할 시간 벌기
     await interaction.response.defer(ephemeral=True)
