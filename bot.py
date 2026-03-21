@@ -674,7 +674,14 @@ async def confirm_teams_slash(interaction: discord.Interaction):
             # 1. 역할 생성 및 부여
             role = discord.utils.get(guild.roles, name=team_name)
             if not role:
+                # 아예 없는 역할이면 새로 만들기 (우측 목록 분리 표시 켬)
                 role = await guild.create_role(name=team_name, hoist=True, mentionable=True, reason="팀 확정")
+            else:
+                # 기존에 있던 역할이라면? 공식 확정 느낌 나게 우측 목록 분리 표시(Hoist)만 딱 켜주기!
+                try:
+                    await role.edit(hoist=True, reason="팀 확정으로 인한 역할 업그레이드")
+                except Exception as e:
+                    print(f"역할 업데이트 오류: {e}")
             
             assigned_count = 0
             for d_id in player_ids:
@@ -715,6 +722,19 @@ async def confirm_teams_slash(interaction: discord.Interaction):
                 await guild.create_text_channel(name="💬참가-요청", category=category, overwrites=fan_overwrites)
                 await guild.create_voice_channel(name="🔊-보이스", category=category, overwrites=vc_overwrites)
 
+        temp_category = discord.utils.get(guild.categories, name="🔄 임시 스크림 룸")
+        if temp_category:
+            for channel in temp_category.channels:
+                try:
+                    await channel.delete()
+                except Exception as e:
+                    print(f"임시 채널 삭제 오류: {e}")
+            try:
+                await temp_category.delete()
+                setup_logs.append("🗑️ 임시 스크림 룸 및 잔여 통화방 일괄 삭제 완료")
+            except Exception as e:
+                print(f"임시 카테고리 삭제 오류: {e}")
+
         # 3. 이적 시장 잠금!
         TEAM_JOIN_LOCKED = True
 
@@ -743,6 +763,121 @@ async def confirm_teams_slash(interaction: discord.Interaction):
         await interaction.followup.send("❌ 봇 권한이 부족합니다! 서버 설정에서 역할을 위로 올려주세요.")
     except Exception as e:
         await interaction.followup.send(f"❌ 오류 발생: {str(e)}")
+
+# ==========================================
+# /팀확정테스트 슬래시 명령어 (DB 롤백 시뮬레이션 - 실제 적용 X)
+# ==========================================
+@bot.tree.command(name="팀확정테스트", description="[관리자 전용] 실제 DB 변경 없이 오토 드래프트 결과를 미리 시뮬레이션합니다.")
+@app_commands.default_permissions(administrator=True)
+async def test_confirm_teams_slash(interaction: discord.Interaction):
+    # 🚨 나(관리자)한테만 보이게 설정해서 다른 유저들 혼란 방지!
+    await interaction.response.defer(ephemeral=True) 
+
+    @sync_to_async
+    def simulate_auto_draft():
+        from django.db import close_old_connections, transaction
+        close_old_connections()
+        from tournament.models import Team, Player
+        from django.db.models import Count
+        import random
+
+        draft_logs = []
+
+        try:
+            # 🚨 마법의 블록 (atomic): 이 안에서 일어나는 모든 DB 작업은 끝날 때 '없던 일'이 됩니다.
+            with transaction.atomic():
+                # 1. 현재 팀 현황 파악 (인원수 내림차순)
+                teams = list(Team.objects.annotate(p_count=Count('players')).order_by('-p_count'))
+                incomplete_teams = [t for t in teams if t.p_count < 5]
+
+                # 2. 2명 이하 팀 강제 해체 시뮬레이션
+                teams_to_destroy = [t for t in incomplete_teams if t.p_count <= 2]
+                for t in teams_to_destroy:
+                    for p in t.players.all():
+                        p.team = None
+                        p.save()
+                    draft_logs.append(f"💥 **{t.name}** 팀 (인원 부족 강제 해체 ➡️ FA 전환)")
+                    incomplete_teams.remove(t)
+                    t.delete()
+
+                # 3. FA 풀 셔플
+                fa_players = list(Player.objects.filter(team__isnull=True))
+                random.shuffle(fa_players)
+
+                # 4. 3~4명 팀에 FA 강제 할당 시뮬레이션
+                for team in incomplete_teams:
+                    current_players = list(team.players.all())
+                    current_tiers = [p.tier for p in current_players]
+                    
+                    while team.players.count() < 5 and fa_players:
+                        needed_tiers = [t for t in [1, 2, 3, 4, 5] if t not in current_tiers]
+                        assigned_player = None
+                        
+                        if needed_tiers:
+                            for t in needed_tiers:
+                                candidates = [p for p in fa_players if p.tier == t]
+                                if candidates:
+                                    assigned_player = random.choice(candidates)
+                                    break
+                        if not assigned_player:
+                            assigned_player = fa_players[0]
+
+                        # DB에 임시 저장 (곧 롤백됨)
+                        assigned_player.team = team
+                        assigned_player.save()
+                        fa_players.remove(assigned_player)
+                        current_tiers.append(assigned_player.tier)
+                        
+                        draft_logs.append(f"🔄 **[시스템 배정]** `{assigned_player.riot_id}` (Tier {assigned_player.tier}) ➡️ **{team.name}** 합류")
+
+                # 5. 남은 FA로 새 팀 창단 시뮬레이션
+                new_team_count = 1
+                while len(fa_players) >= 5:
+                    new_team_name = f"FA 연합 {new_team_count}팀"
+                    Team.objects.create(name=new_team_name)
+                    draft_logs.append(f"✨ **[신규 창단]** **{new_team_name}** 결성")
+                    for _ in range(5):
+                        p = fa_players.pop(0)
+                        draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
+                    new_team_count += 1
+
+                if len(fa_players) > 0:
+                    draft_logs.append(f"⚠️ **경고:** 5명을 채우지 못한 나머지 잔여 FA 인원이 {len(fa_players)}명 남았습니다.")
+
+                # ==========================================
+                # 🚨 시간 여행 롤백 스위치! 
+                # 여기까지 진행한 모든 DB 수정을 전부 '취소(False)' 처리합니다.
+                # ==========================================
+                transaction.set_rollback(True)
+                
+        except Exception as e:
+            return [f"❌ 시뮬레이션 중 오류 발생: {e}"]
+
+        return draft_logs
+
+    # 비동기로 함수 실행
+    logs = await simulate_auto_draft()
+
+    # 테스트 결과 임베드 디자인
+    embed = discord.Embed(
+        title="🧪 [ TEST MODE ] 오토 드래프트 시뮬레이터",
+        description="이 결과는 실제 DB나 디스코드에 **전혀 반영되지 않은 가상 결과**입니다.\n(지금 이 인원 그대로 진짜 `/팀확정`을 누를 경우의 예측 시나리오)",
+        color=0x9B59B6
+    )
+    
+    if logs:
+        draft_text = "\n".join(logs)
+        # 글자가 너무 길면 디스코드 에러가 나므로 자르기
+        if len(draft_text) > 4000:
+            draft_text = draft_text[:4000] + "\n... (이하 생략)"
+        embed.description += f"\n\n{draft_text}"
+    else:
+        embed.description += "\n\n✅ 모든 팀이 5명으로 꽉 차 있어서 강제 드래프트가 발생하지 않습니다."
+
+    embed.set_footer(text="안심하세요! 디스코드 서버와 웹사이트에는 아무런 변화도 일어나지 않았습니다.")
+    
+    # 관리자 개인에게만 전송
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 # ==========================================
 # [ UI View ] 보이스 채널 관전 승인/거절 버튼
