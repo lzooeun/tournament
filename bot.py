@@ -470,6 +470,9 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
             if player.team == target_team:
                 return False, f"⚠️ 이미 **{target_team.name}** 팀에 소속되어 있습니다."
             
+            if target_team.players.filter(tier=player.tier).exists():
+                return False, f"❌ **{target_team.name}** 팀에는 이미 Tier {player.tier} 포지션이 채워져 있습니다. (티어 중복 불가)"
+            
             old_team = player.team
             old_team_name = old_team.name if old_team else "무소속"
             
@@ -555,6 +558,66 @@ async def join_team_slash(interaction: discord.Interaction, team_name: str):
     else:
         await interaction.followup.send(result, ephemeral=True)
         
+# ==========================================
+# /팀가입확인 슬래시 명령어 (티어 중복자 색출기)
+# ==========================================
+@bot.tree.command(name="팀가입확인", description="[관리자 전용] 전 구단의 로스터를 검사하여 동일 티어 중복 가입자를 색출합니다.")
+@app_commands.default_permissions(administrator=True)
+async def check_team_tiers_slash(interaction: discord.Interaction):
+    # 관리자에게만 보이도록 설정하고 대기
+    await interaction.response.defer(ephemeral=True)
+
+    @sync_to_async
+    def audit_teams():
+        from django.db import close_old_connections
+        close_old_connections()
+        from tournament.models import Team
+        
+        issues = []
+        # 모든 팀과 소속 플레이어들을 한 번에 가져옵니다
+        teams = Team.objects.prefetch_related('players').all()
+        
+        for team in teams:
+            players = list(team.players.all())
+            seen_tiers = {} # {티어: 플레이어객체}
+            duplicates = []
+            
+            for p in players:
+                if p.tier in seen_tiers:
+                    # 이미 해당 티어를 가진 사람이 있다면 중복 리스트에 추가!
+                    duplicates.append((p.tier, seen_tiers[p.tier], p))
+                else:
+                    seen_tiers[p.tier] = p
+            
+            # 중복자가 발견된 팀은 리포트에 작성
+            if duplicates:
+                issue_str = f"🚨 **{team.name}** 팀 티어 중복 발견!\n"
+                for tier, p1, p2 in duplicates:
+                    issue_str += f"  - **Tier {tier}** 충돌: `{p1.riot_id}` ⚡ `{p2.riot_id}`\n"
+                issues.append(issue_str)
+                
+        return issues
+
+    issues = await audit_teams()
+    
+    # 보고서 임베드 디자인
+    embed = discord.Embed(
+        title="🔍 전 구단 티어 중복 검사 리포트", 
+        color=0xE74C3C if issues else 0x2ECC71
+    )
+    
+    if not issues:
+        embed.description = "✅ 완벽합니다! 모든 팀이 겹치는 티어 없이 규칙대로 구성되어 있습니다."
+    else:
+        embed.description = (
+            "⚠️ **경고:** 아래 팀들에서 동일 티어가 중복 가입된 것이 적발되었습니다.\n"
+            "*(※ DB 구조상 가입 순서를 100% 확신할 수 없으므로 자동 추방은 보류합니다.)*\n\n"
+            "관리자님은 해당 유저들에게 안내 후 봇 명령어(`/팀원추방` 또는 장고 어드민)를 사용해 정리해 주십시오."
+        )
+        for idx, issue in enumerate(issues):
+            embed.add_field(name=f"[ Case {idx+1} ]", value=issue, inline=False)
+            
+    await interaction.followup.send(embed=embed)
 
 # ==========================================
 # /팀확정 슬래시 명령어 (시스템 드래프트 + 채널 자동 생성)
@@ -587,67 +650,101 @@ async def confirm_teams_slash(interaction: discord.Interaction):
 
         draft_logs = []
         
-        # 1. 현재 팀 현황 파악 (인원수 기준 내림차순 정렬: 4명 -> 3명 -> 2명 -> 1명)
-        teams = list(Team.objects.annotate(p_count=Count('players')).order_by('-p_count'))
-        incomplete_teams = [t for t in teams if t.p_count < 5]
-
-        # 2. 2명 이하인 소수 팀 강제 해체 (듀오 찢기)
-        teams_to_destroy = [t for t in incomplete_teams if t.p_count <= 2]
-        for t in teams_to_destroy:
-            for p in t.players.all():
-                p.team = None
-                p.save()
-            draft_logs.append(f"💥 **{t.name}** 팀 (인원 부족으로 시스템 강제 해체 ➡️ 전원 FA 전환)")
-            incomplete_teams.remove(t)
-            t.delete()
-
-        # 3. FA 풀 가져오기 및 셔플 (랜덤성 보장)
-        fa_players = list(Player.objects.filter(team__isnull=True))
-        random.shuffle(fa_players)
-
-        # 4. 3~4명인 팀에 FA 강제 할당 (티어 기반)
-        for team in incomplete_teams:
-            current_players = list(team.players.all())
-            current_tiers = [p.tier for p in current_players]
+        try:
+            # 1. 모든 팀 가져오기 (완성/미완성 분리)
+            all_teams = list(Team.objects.prefetch_related('players').all())
+            incomplete_teams = [t for t in all_teams if t.players.count() < 5]
             
-            while team.players.count() < 5 and fa_players:
-                # 팀에 없는 티어 찾기 (1~5 중 없는 것)
-                needed_tiers = [t for t in [1, 2, 3, 4, 5] if t not in current_tiers]
+            fa_players = list(Player.objects.filter(team__isnull=True))
+
+            # 2. 미완성 팀 채우기 루프 (티어 중복 절대 불가!)
+            while incomplete_teams:
+                progress_made = False
                 
-                assigned_player = None
-                if needed_tiers:
-                    # 필요한 티어와 일치하는 FA가 있는지 검색
+                # 인원이 많은 팀부터 채우기 시도 (내림차순 정렬)
+                incomplete_teams.sort(key=lambda t: t.players.count(), reverse=True)
+                teams_to_remove_from_list = []
+
+                for team in incomplete_teams:
+                    current_players = list(team.players.all())
+                    current_tiers = [p.tier for p in current_players]
+                    # 이 팀에 '없는' 티어만 쏙쏙 골라냄
+                    needed_tiers = [t for t in [1, 2, 3, 4, 5] if t not in current_tiers]
+                    
+                    # FA 대기실에 우리가 필요한 '모든' 티어가 다 있는지 확인
+                    temp_fa = list(fa_players)
+                    fa_to_use = []
+                    fa_has_all = True
+                    
                     for t in needed_tiers:
-                        candidates = [p for p in fa_players if p.tier == t]
-                        if candidates:
-                            assigned_player = random.choice(candidates)
+                        found = False
+                        for p in temp_fa:
+                            if p.tier == t:
+                                fa_to_use.append(p)
+                                temp_fa.remove(p) # 임시 목록에서 빼서 중복 선택 방지
+                                found = True
+                                break
+                        if not found:
+                            fa_has_all = False
                             break
-                
-                # 일치하는 티어가 없으면 남은 FA 중 완전 무작위 배정
-                if not assigned_player:
-                    assigned_player = fa_players[0]
+                    
+                    # 필요한 티어가 FA에 다 있다면? -> 영입 승인!
+                    if fa_has_all:
+                        for p in fa_to_use:
+                            p.team = team
+                            p.save()
+                            fa_players.remove(p) # 실제 FA 목록에서 제거
+                            draft_logs.append(f"🔄 **[시스템 영입]** `{p.riot_id}` (Tier {p.tier}) ➡️ **{team.name}** 합류")
+                        
+                        teams_to_remove_from_list.append(team)
+                        progress_made = True
 
-                # 팀 배정 실행
-                assigned_player.team = team
-                assigned_player.save()
-                fa_players.remove(assigned_player)
-                current_tiers.append(assigned_player.tier)
-                
-                draft_logs.append(f"🔄 **[시스템 배정]** `{assigned_player.riot_id}` (Tier {assigned_player.tier}) ➡️ **{team.name}** 강제 합류")
+                # 꽉 채워진 팀은 미완성 목록에서 졸업
+                for t in teams_to_remove_from_list:
+                    incomplete_teams.remove(t)
 
-        # 5. 남은 FA들로 새로운 팀 생성 (5명씩)
-        new_team_count = 1
-        while len(fa_players) >= 5:
-            new_team_name = f"FA 연합 {new_team_count}팀"
-            new_team = Team.objects.create(name=new_team_name)
-            draft_logs.append(f"✨ **[신규 팀 창단]** FA 잔류 인원으로 **{new_team_name}**이(가) 결성되었습니다.")
-            
-            for _ in range(5):
-                p = fa_players.pop(0)
-                p.team = new_team
-                p.save()
-                draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
-            new_team_count += 1
+                # 3. 🚨 교착 상태 해결 (주은 님의 핵심 로직)
+                # 채울 수 있는 팀을 다 채웠는데도 아직 미완성 팀이 남아있다면?
+                if not progress_made and incomplete_teams:
+                    # 현재 남은 팀들 중 '가장 멤버가 적은 수'를 찾음
+                    min_size = min(t.players.count() for t in incomplete_teams)
+                    
+                    # 제일 멤버가 적은 팀(동률 포함)을 모두 골라내기
+                    teams_to_disband = [t for t in incomplete_teams if t.players.count() == min_size]
+                    
+                    for t in teams_to_disband:
+                        for p in t.players.all():
+                            p.team = None
+                            p.save()
+                            fa_players.append(p) # 폭파된 인원들은 다시 FA 대기실로 투입!
+                        
+                        draft_logs.append(f"💥 **[팀 강제 해체]** **{t.name}** (티어 교착 상태 해결을 위해 해체 ➡️ 전원 FA 전환)")
+                        incomplete_teams.remove(t)
+                        t.delete()
+
+            # 4. 잔여 FA 인원으로 신규 연합팀 창단 (이제 여기도 무조건 1~5티어 중복 없이 배정!)
+            new_team_count = 1
+            while len(fa_players) >= 5:
+                new_team_name = f"FA 연합 {new_team_count}팀"
+                new_team = Team.objects.create(name=new_team_name)
+                draft_logs.append(f"✨ **[신규 팀 창단]** **{new_team_name}** 결성")
+                
+                # 1, 2, 3, 4, 5 티어를 정확히 하나씩 끄집어내어 팀에 넣음
+                for required_tier in [1, 2, 3, 4, 5]:
+                    for p in fa_players:
+                        if p.tier == required_tier:
+                            p.team = new_team
+                            p.save()
+                            fa_players.remove(p)
+                            draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
+                            break
+                new_team_count += 1
+
+            if len(fa_players) > 0:
+                draft_logs.append(f"⚠️ **경고:** 티어 불균형으로 인해 팀에 배정되지 못한 인원이 {len(fa_players)}명 남았습니다.")
+                
+        except Exception as e:
+            return [f"❌ 시뮬레이션 중 오류 발생: {e}"]
 
         return draft_logs
 
@@ -781,74 +878,106 @@ async def test_confirm_teams_slash(interaction: discord.Interaction):
         from django.db.models import Count
         import random
 
+        # (기존의 from django.db ... 등의 import문들 아래부터 덮어씌우시면 됩니다)
+        
         draft_logs = []
 
         try:
-            # 🚨 마법의 블록 (atomic): 이 안에서 일어나는 모든 DB 작업은 끝날 때 '없던 일'이 됩니다.
-            with transaction.atomic():
-                # 1. 현재 팀 현황 파악 (인원수 내림차순)
-                teams = list(Team.objects.annotate(p_count=Count('players')).order_by('-p_count'))
-                incomplete_teams = [t for t in teams if t.p_count < 5]
-
-                # 2. 2명 이하 팀 강제 해체 시뮬레이션
-                teams_to_destroy = [t for t in incomplete_teams if t.p_count <= 2]
-                for t in teams_to_destroy:
-                    for p in t.players.all():
-                        p.team = None
-                        p.save()
-                    draft_logs.append(f"💥 **{t.name}** 팀 (인원 부족 강제 해체 ➡️ FA 전환)")
-                    incomplete_teams.remove(t)
-                    t.delete()
-
-                # 3. FA 풀 셔플
+            with transaction.atomic(): # 실제 반영 명령어일 경우 이 줄은 제외하세요
+                # 1. 모든 팀 가져오기 (완성/미완성 분리)
+                all_teams = list(Team.objects.prefetch_related('players').all())
+                incomplete_teams = [t for t in all_teams if t.players.count() < 5]
+                
                 fa_players = list(Player.objects.filter(team__isnull=True))
-                random.shuffle(fa_players)
 
-                # 4. 3~4명 팀에 FA 강제 할당 시뮬레이션
-                for team in incomplete_teams:
-                    current_players = list(team.players.all())
-                    current_tiers = [p.tier for p in current_players]
+                # 2. 미완성 팀 채우기 루프 (티어 중복 절대 불가!)
+                while incomplete_teams:
+                    progress_made = False
                     
-                    while team.players.count() < 5 and fa_players:
+                    # 인원이 많은 팀부터 채우기 시도 (내림차순 정렬)
+                    incomplete_teams.sort(key=lambda t: t.players.count(), reverse=True)
+                    teams_to_remove_from_list = []
+
+                    for team in incomplete_teams:
+                        current_players = list(team.players.all())
+                        current_tiers = [p.tier for p in current_players]
+                        # 이 팀에 '없는' 티어만 쏙쏙 골라냄
                         needed_tiers = [t for t in [1, 2, 3, 4, 5] if t not in current_tiers]
-                        assigned_player = None
                         
-                        if needed_tiers:
-                            for t in needed_tiers:
-                                candidates = [p for p in fa_players if p.tier == t]
-                                if candidates:
-                                    assigned_player = random.choice(candidates)
+                        # FA 대기실에 우리가 필요한 '모든' 티어가 다 있는지 확인
+                        temp_fa = list(fa_players)
+                        fa_to_use = []
+                        fa_has_all = True
+                        
+                        for t in needed_tiers:
+                            found = False
+                            for p in temp_fa:
+                                if p.tier == t:
+                                    fa_to_use.append(p)
+                                    temp_fa.remove(p) # 임시 목록에서 빼서 중복 선택 방지
+                                    found = True
                                     break
-                        if not assigned_player:
-                            assigned_player = fa_players[0]
-
-                        # DB에 임시 저장 (곧 롤백됨)
-                        assigned_player.team = team
-                        assigned_player.save()
-                        fa_players.remove(assigned_player)
-                        current_tiers.append(assigned_player.tier)
+                            if not found:
+                                fa_has_all = False
+                                break
                         
-                        draft_logs.append(f"🔄 **[시스템 배정]** `{assigned_player.riot_id}` (Tier {assigned_player.tier}) ➡️ **{team.name}** 합류")
+                        # 필요한 티어가 FA에 다 있다면? -> 영입 승인!
+                        if fa_has_all:
+                            for p in fa_to_use:
+                                p.team = team
+                                p.save()
+                                fa_players.remove(p) # 실제 FA 목록에서 제거
+                                draft_logs.append(f"🔄 **[시스템 영입]** `{p.riot_id}` (Tier {p.tier}) ➡️ **{team.name}** 합류")
+                            
+                            teams_to_remove_from_list.append(team)
+                            progress_made = True
 
-                # 5. 남은 FA로 새 팀 창단 시뮬레이션
+                    # 꽉 채워진 팀은 미완성 목록에서 졸업
+                    for t in teams_to_remove_from_list:
+                        incomplete_teams.remove(t)
+
+                    # 3. 🚨 교착 상태 해결 (주은 님의 핵심 로직)
+                    # 채울 수 있는 팀을 다 채웠는데도 아직 미완성 팀이 남아있다면?
+                    if not progress_made and incomplete_teams:
+                        # 현재 남은 팀들 중 '가장 멤버가 적은 수'를 찾음
+                        min_size = min(t.players.count() for t in incomplete_teams)
+                        
+                        # 제일 멤버가 적은 팀(동률 포함)을 모두 골라내기
+                        teams_to_disband = [t for t in incomplete_teams if t.players.count() == min_size]
+                        
+                        for t in teams_to_disband:
+                            for p in t.players.all():
+                                p.team = None
+                                p.save()
+                                fa_players.append(p) # 폭파된 인원들은 다시 FA 대기실로 투입!
+                            
+                            draft_logs.append(f"💥 **[팀 강제 해체]** **{t.name}** (티어 교착 상태 해결을 위해 해체 ➡️ 전원 FA 전환)")
+                            incomplete_teams.remove(t)
+                            t.delete()
+
+                # 4. 잔여 FA 인원으로 신규 연합팀 창단 (이제 여기도 무조건 1~5티어 중복 없이 배정!)
                 new_team_count = 1
                 while len(fa_players) >= 5:
                     new_team_name = f"FA 연합 {new_team_count}팀"
-                    Team.objects.create(name=new_team_name)
-                    draft_logs.append(f"✨ **[신규 창단]** **{new_team_name}** 결성")
-                    for _ in range(5):
-                        p = fa_players.pop(0)
-                        draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
+                    new_team = Team.objects.create(name=new_team_name)
+                    draft_logs.append(f"✨ **[신규 팀 창단]** **{new_team_name}** 결성")
+                    
+                    # 1, 2, 3, 4, 5 티어를 정확히 하나씩 끄집어내어 팀에 넣음
+                    for required_tier in [1, 2, 3, 4, 5]:
+                        for p in fa_players:
+                            if p.tier == required_tier:
+                                p.team = new_team
+                                p.save()
+                                fa_players.remove(p)
+                                draft_logs.append(f"   └ 🔄 `{p.riot_id}` (Tier {p.tier}) 합류")
+                                break
                     new_team_count += 1
 
                 if len(fa_players) > 0:
-                    draft_logs.append(f"⚠️ **경고:** 5명을 채우지 못한 나머지 잔여 FA 인원이 {len(fa_players)}명 남았습니다.")
+                    draft_logs.append(f"⚠️ **경고:** 티어 불균형으로 인해 팀에 배정되지 못한 인원이 {len(fa_players)}명 남았습니다.")
 
-                # ==========================================
-                # 🚨 시간 여행 롤백 스위치! 
-                # 여기까지 진행한 모든 DB 수정을 전부 '취소(False)' 처리합니다.
-                # ==========================================
-                transaction.set_rollback(True)
+                # (시뮬레이션일 경우 아래 롤백 코드 유지, 실제 적용일 경우 삭제)
+                transaction.set_rollback(True) 
                 
         except Exception as e:
             return [f"❌ 시뮬레이션 중 오류 발생: {e}"]
